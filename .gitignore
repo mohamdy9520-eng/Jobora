@@ -43,3 +43,28 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android / Gradle
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+android/build/reports/
+
+# Firebase / Local configuration
+google-services.json
+GoogleService-Info.plist
+
+# Environment / Secrets
+.env
+.env.*
+!.env.example
+
+# Firebase generated/local files
+firebase-debug.log
+firebase-debug.*.log
+
+# IDE / OS
+*.bak
+*.tmp
+Thumbs.db
