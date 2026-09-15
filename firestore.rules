@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, update, delete: if isOwner(uid);
+      allow create: if isOwner(uid);
+
+      match /applications/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /interviews/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /cvs/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /coverLetters/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /notes/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /followUps/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /aiUsage/{docId} {
+        // Server-side only (Cloud Functions) — clients never write usage counters.
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+      match /statistics/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // computed server-side
+      }
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

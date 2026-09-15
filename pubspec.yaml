@@ -1,0 +1,95 @@
+name: Jobora
+description: "JobMate - Your Personal Job Search Assistant"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+  provider: ^6.1.2
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Firebase
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_storage: ^12.1.3
+  firebase_messaging: ^15.0.4
+  firebase_analytics: ^11.2.1
+  firebase_crashlytics: ^4.0.4
+  google_sign_in: ^6.2.1
+
+  # Local persistence
+  shared_preferences: ^2.2.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Responsive / UI
+  flutter_screenutil: ^5.9.3
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.1
+
+  # Localization (custom JSON-based, see core/localization)
+  # Version pinned by flutter_localizations from the Flutter SDK — keep in
+  # sync with it (run `flutter pub outdated` if a future SDK bumps it).
+  intl: ^0.20.2
+
+  # Notifications
+  flutter_local_notifications: ^17.2.2
+
+  # PDF export
+  pdf: ^3.11.0
+  printing: ^5.13.1
+
+  # Subscriptions
+  purchases_flutter: ^8.2.1 # RevenueCat
+
+  # Networking (AI provider abstraction)
+  http: ^1.2.2
+  dio: ^5.5.0+1
+
+  # Utilities
+  intl_phone_field: ^3.2.0
+  url_launcher: ^6.3.0
+  file_picker: ^12.3.0
+  image_picker: ^1.1.2
+  uuid: ^4.4.2
+
+  cupertino_icons: ^1.0.8
+  easy_localization: ^3.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  hive_generator: ^2.0.1
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/Jobora.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/Jobora.png"
+  adaptive_icon_foreground_inset: 20
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/translations/
+    - assets/images/
+    - assets/icons/
