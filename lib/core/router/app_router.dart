@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
+import '../../features/notifications/screens/notifications_screen.dart';
+import '../../features/subscriptions/screens/subscriptions_screen.dart';
 import '../services/app_settings_controller.dart';
 import '../services/auth_controller.dart';
 import '../widgets/main_shell.dart';
@@ -17,6 +19,9 @@ import '../../features/applications/application_details_screen.dart';
 import '../../features/interviews/interviews_screen.dart';
 import '../../features/statistics/statistics_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/legal/privacy/privacy_screen.dart';
+import '../../features/legal/terms/terms_screen.dart';
+
 
 class AppRoutes {
   AppRoutes._();
@@ -30,46 +35,39 @@ class AppRoutes {
   static const applications = '/applications';
   static const addApplication = '/add-application';
   static const applicationDetails = '/application';
-
-  /// Edit screen for an existing application — deliberately a separate
-  /// screen (not AddApplicationScreen reused in an edit mode), reached
-  /// via '/application/:id/edit'.
   static const editApplication = '/application';
   static const interviews = '/interviews';
   static const statistics = '/statistics';
   static const profile = '/profile';
-
-  /// Currency screen reused from Profile/Settings. Deliberately a
-  /// different path from [currency] (the onboarding step) so the
-  /// redirect logic below — which treats [currency] as part of
-  /// onboarding and bounces authenticated users to /home — never
-  /// touches this one.
   static const currencySettings = '/settings/currency';
+
+  // New settings screens — same pattern as currencySettings: top-level
+  // routes pushed from Profile, deliberately outside isOnboardingFlow
+  // so the redirect logic never bounces an authenticated user away.
+  static const privacy = '/settings/privacy';
+  static const notifications = '/settings/notifications';
+  static const subscriptions = '/settings/subscriptions';
+  static const terms = '/settings/terms';
 }
 
-/// Builds the app's GoRouter, redirecting based on onboarding + auth state.
-/// Must be called exactly once (see main.dart) — never rebuild this object.
 GoRouter buildAppRouter({
   required AppSettingsController settings,
   required AuthController auth,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
-    // Listens to BOTH — auth changes (login/logout) and settings changes
-    // (e.g. onboarding just got marked complete) each need to re-trigger
-    // the redirect below, even with no explicit navigation call anywhere.
     refreshListenable: Listenable.merge([auth, settings]),
     redirect: (context, state) {
       final loc = state.matchedLocation;
 
-      if (auth.isInitializing) return null; // stay on splash while checking
+      if (auth.isInitializing) return null;
 
       final isAuthRoute = loc == AppRoutes.login || loc == AppRoutes.signup;
       final isOnboardingFlow = loc == AppRoutes.language ||
           loc == AppRoutes.currency ||
           loc == AppRoutes.onboarding;
 
-      if (loc == AppRoutes.splash) return null; // splash decides its own next step
+      if (loc == AppRoutes.splash) return null;
 
       if (!settings.onboardingCompleted && !isOnboardingFlow) {
         return AppRoutes.language;
@@ -87,10 +85,8 @@ GoRouter buildAppRouter({
     },
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (c, s) => const SplashScreen()),
-      GoRoute(
-          path: AppRoutes.language, builder: (c, s) => const LanguageSelectionScreen()),
-      GoRoute(
-          path: AppRoutes.currency, builder: (c, s) => const CurrencySelectionScreen()),
+      GoRoute(path: AppRoutes.language, builder: (c, s) => const LanguageSelectionScreen()),
+      GoRoute(path: AppRoutes.currency, builder: (c, s) => const CurrencySelectionScreen()),
       GoRoute(path: AppRoutes.onboarding, builder: (c, s) => const OnboardingScreen()),
       GoRoute(path: AppRoutes.login, builder: (c, s) => const LoginScreen()),
       GoRoute(path: AppRoutes.signup, builder: (c, s) => const SignupScreen()),
@@ -103,21 +99,19 @@ GoRouter buildAppRouter({
         builder: (c, s) =>
             ApplicationDetailsScreen(applicationId: s.pathParameters['id']!),
       ),
-      // Dedicated edit screen (not AddApplicationScreen reused) — see
-      // AppRoutes.editApplication doc comment above.
       GoRoute(
         path: '${AppRoutes.editApplication}/:id/edit',
         builder: (c, s) =>
             EditApplicationScreen(applicationId: s.pathParameters['id']!),
       ),
-      // Currency screen accessed from Profile/Settings (not onboarding).
-      // Not part of isOnboardingFlow above, so authenticated users are
-      // never redirected away from it.
       GoRoute(
         path: AppRoutes.currencySettings,
         builder: (c, s) => const CurrencySelectionScreen(fromSettings: true),
       ),
-      // Shell route: bottom navigation tabs share persistent chrome.
+      GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
+      GoRoute(path: AppRoutes.terms, builder: (c, s) => const TermsScreen()),
+      GoRoute(path: AppRoutes.notifications, builder: (c, s) => const NotificationsScreen()),
+      GoRoute(path: AppRoutes.subscriptions, builder: (c, s) => const SubscriptionsScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
@@ -126,18 +120,13 @@ GoRouter buildAppRouter({
             GoRoute(path: AppRoutes.home, builder: (c, s) => const HomeScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(
-                path: AppRoutes.applications,
-                builder: (c, s) => const ApplicationsScreen()),
+            GoRoute(path: AppRoutes.applications, builder: (c, s) => const ApplicationsScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(
-                path: AppRoutes.interviews, builder: (c, s) => const InterviewsScreen()),
+            GoRoute(path: AppRoutes.interviews, builder: (c, s) => const InterviewsScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(
-                path: AppRoutes.statistics,
-                builder: (c, s) => const StatisticsScreen()),
+            GoRoute(path: AppRoutes.statistics, builder: (c, s) => const StatisticsScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.profile, builder: (c, s) => const ProfileScreen()),

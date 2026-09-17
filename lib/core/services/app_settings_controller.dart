@@ -24,6 +24,14 @@ class AppSettingsController extends ChangeNotifier {
 
   static const supportedCurrencies = ['USD', 'EUR', 'GBP', 'EGP', 'SAR', 'AED'];
 
+  /// Extensible list of supported UI languages. Add a new entry here
+  /// (and its ar/en localization JSON) to support a 3rd+ language —
+  /// the picker in ProfileScreen renders directly from this list.
+  static const supportedLanguages = [
+    LanguageOption(code: 'en', nativeName: 'English'),
+    LanguageOption(code: 'ar', nativeName: 'العربية'),
+  ];
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final lang = prefs.getString(_kLanguageKey);
@@ -67,4 +75,10 @@ class AppSettingsController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kOnboardingDoneKey, true);
   }
+}
+
+class LanguageOption {
+  final String code;
+  final String nativeName;
+  const LanguageOption({required this.code, required this.nativeName});
 }

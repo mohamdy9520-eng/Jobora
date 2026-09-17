@@ -12,6 +12,88 @@ import '../../core/utils/responsive.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showLanguagePicker(BuildContext context, AppSettingsController settings) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  sheetContext.tr('language_select_title'),
+                  style: AppTextStyles.h3(Theme.of(sheetContext).colorScheme.onSurface),
+                ),
+              ),
+              // Renders directly from AppSettingsController.supportedLanguages —
+              // adding a 3rd language later means adding one entry there,
+              // nothing to change in this UI.
+              ...AppSettingsController.supportedLanguages.map((lang) {
+                return RadioListTile<String>(
+                  value: lang.code,
+                  groupValue: settings.locale.languageCode,
+                  title: Text(lang.nativeName),
+                  onChanged: (code) {
+                    if (code != null) settings.setLocale(Locale(code));
+                    Navigator.of(sheetContext).pop();
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showThemePicker(BuildContext context, AppSettingsController settings) {
+    final options = <ThemeMode, String>{
+      ThemeMode.system: context.tr('theme_system'),
+      ThemeMode.light: context.tr('theme_light'),
+      ThemeMode.dark: context.tr('theme_dark'),
+    };
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  sheetContext.tr('theme_select_title'),
+                  style: AppTextStyles.h3(Theme.of(sheetContext).colorScheme.onSurface),
+                ),
+              ),
+              ...options.entries.map((entry) {
+                return RadioListTile<ThemeMode>(
+                  value: entry.key,
+                  groupValue: settings.themeMode,
+                  title: Text(entry.value),
+                  onChanged: (mode) {
+                    if (mode != null) settings.setThemeMode(mode);
+                    Navigator.of(sheetContext).pop();
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettingsController>();
@@ -22,6 +104,10 @@ class ProfileScreen extends StatelessWidget {
         ? auth.displayName!.trim()
         : context.tr('profile_default_name');
     final email = auth.email ?? '';
+    final currentLanguageName = AppSettingsController.supportedLanguages
+        .firstWhere((l) => l.code == settings.locale.languageCode,
+        orElse: () => AppSettingsController.supportedLanguages.first)
+        .nativeName;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('profile_title'))),
@@ -58,9 +144,8 @@ class ProfileScreen extends StatelessWidget {
                 _SettingsTile(
                   icon: Icons.language,
                   title: context.tr('profile_language'),
-                  trailing: settings.locale.languageCode == 'ar' ? 'العربية' : 'English',
-                  onTap: () => settings.setLocale(
-                      Locale(settings.locale.languageCode == 'ar' ? 'en' : 'ar')),
+                  trailing: currentLanguageName,
+                  onTap: () => _showLanguagePicker(context, settings),
                 ),
                 _SettingsTile(
                   icon: Icons.attach_money,
@@ -76,19 +161,28 @@ class ProfileScreen extends StatelessWidget {
                     ThemeMode.light => context.tr('theme_light'),
                     ThemeMode.system => context.tr('theme_system'),
                   },
-                  onTap: () {
-                    final next = switch (settings.themeMode) {
-                      ThemeMode.system => ThemeMode.light,
-                      ThemeMode.light => ThemeMode.dark,
-                      ThemeMode.dark => ThemeMode.system,
-                    };
-                    settings.setThemeMode(next);
-                  },
+                  onTap: () => _showThemePicker(context, settings),
                 ),
-                _SettingsTile(icon: Icons.notifications_outlined, title: context.tr('profile_notifications'), onTap: () {}),
-                _SettingsTile(icon: Icons.workspace_premium_outlined, title: context.tr('profile_subscription'), onTap: () {}),
-                _SettingsTile(icon: Icons.privacy_tip_outlined, title: context.tr('profile_privacy'), onTap: () {}),
-                _SettingsTile(icon: Icons.description_outlined, title: context.tr('profile_terms'), onTap: () {}),
+                _SettingsTile(
+                  icon: Icons.notifications_outlined,
+                  title: context.tr('profile_notifications'),
+                  onTap: () => context.push(AppRoutes.notifications),
+                ),
+                _SettingsTile(
+                  icon: Icons.workspace_premium_outlined,
+                  title: context.tr('profile_subscription'),
+                  onTap: () => context.push(AppRoutes.subscriptions),
+                ),
+                _SettingsTile(
+                  icon: Icons.privacy_tip_outlined,
+                  title: context.tr('profile_privacy'),
+                  onTap: () => context.push(AppRoutes.privacy),
+                ),
+                _SettingsTile(
+                  icon: Icons.description_outlined,
+                  title: context.tr('profile_terms'),
+                  onTap: () => context.push(AppRoutes.terms),
+                ),
                 const SizedBox(height: AppSpacing.xl),
                 OutlinedButton.icon(
                   onPressed: () => context.read<AuthController>().signOut(),
