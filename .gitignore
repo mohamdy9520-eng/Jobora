@@ -68,3 +68,6 @@ firebase-debug.*.log
 *.bak
 *.tmp
 Thumbs.db
+
+android/key.properties
+*.jks

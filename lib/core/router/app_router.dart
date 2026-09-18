@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
+import '../../features/interviews/add_interview_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/subscriptions/screens/subscriptions_screen.dart';
 import '../services/app_settings_controller.dart';
@@ -40,6 +41,8 @@ class AppRoutes {
   static const statistics = '/statistics';
   static const profile = '/profile';
   static const currencySettings = '/settings/currency';
+  static const addInterview = '/add-interview';
+
 
   // New settings screens — same pattern as currencySettings: top-level
   // routes pushed from Profile, deliberately outside isOnboardingFlow
@@ -107,6 +110,12 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.currencySettings,
         builder: (c, s) => const CurrencySelectionScreen(fromSettings: true),
+      ),
+      GoRoute(
+        path: AppRoutes.addInterview,
+        builder: (c, s) => AddInterviewScreen(
+          preselectedApplicationId: s.uri.queryParameters['applicationId'],
+        ),
       ),
       GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.terms, builder: (c, s) => const TermsScreen()),

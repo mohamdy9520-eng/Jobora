@@ -45,6 +45,38 @@ class MainShell extends StatelessWidget {
     );
   }
 
+  /// FAB is shown on Home (0), Applications (1) and Interviews (2).
+  /// Statistics (3) and Profile (4) have no FAB.
+  bool _showFab(int index) => index == 0 || index == 1 || index == 2;
+
+  Widget? _buildFab(BuildContext context, {bool extended = false}) {
+    final index = navigationShell.currentIndex;
+    if (!_showFab(index)) return null;
+
+    final isInterviews = index == 2;
+    final route = isInterviews ? AppRoutes.addInterview : AppRoutes.addApplication;
+    final labelKey = isInterviews ? 'interviews_add_title' : 'home_add_application';
+
+    if (extended) {
+      return SizedBox(
+        width: double.infinity,
+        child: FloatingActionButton.extended(
+          heroTag: 'main_shell_fab',
+          onPressed: () => context.push(route),
+          icon: const Icon(Icons.add),
+          label: Text(context.tr(labelKey)),
+        ),
+      );
+    }
+
+    return FloatingActionButton(
+      heroTag: 'main_shell_fab',
+      onPressed: () => context.push(route),
+      tooltip: context.tr(labelKey),
+      child: const Icon(Icons.add),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final useRail = context.isTablet || context.isDesktop;
@@ -53,11 +85,7 @@ class MainShell extends StatelessWidget {
     if (!useRail) {
       return Scaffold(
         body: navigationShell,
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => context.push(AppRoutes.addApplication),
-          tooltip: context.tr('home_add_application'),
-          child: const Icon(Icons.add),
-        ),
+        floatingActionButton: _buildFab(context),
         bottomNavigationBar: NavigationBar(
           selectedIndex: navigationShell.currentIndex,
           onDestinationSelected: _onDestinationSelected,
@@ -83,23 +111,12 @@ class MainShell extends StatelessWidget {
             onDestinationSelected: _onDestinationSelected,
             extended: extended,
             labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-            leading: Padding(
+            leading: _showFab(navigationShell.currentIndex)
+                ? Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: extended
-                  ? SizedBox(
-                width: double.infinity,
-                child: FloatingActionButton.extended(
-                  onPressed: () => context.push(AppRoutes.addApplication),
-                  icon: const Icon(Icons.add),
-                  label: Text(context.tr('home_add_application')),
-                ),
-              )
-                  : FloatingActionButton(
-                onPressed: () => context.push(AppRoutes.addApplication),
-                tooltip: context.tr('home_add_application'),
-                child: const Icon(Icons.add),
-              ),
-            ),
+              child: _buildFab(context, extended: extended),
+            )
+                : null,
             destinations: [
               for (final item in items)
                 NavigationRailDestination(
