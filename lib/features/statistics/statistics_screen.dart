@@ -13,7 +13,7 @@ class StatisticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = Theme.of(context).colorScheme.onSurface;
+    Theme.of(context).colorScheme.onSurface;
     final stats = context.watch<StatisticsController>();
 
     if (stats.isLoading) {

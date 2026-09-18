@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../models/user_profile_model.dart';
+import 'user_profile_repository.dart';
 
 /// Wraps authentication state for the router's redirect logic and the UI.
 ///
@@ -7,8 +9,11 @@ import 'package:flutter/material.dart';
 ///
 /// FirebaseAuth.instance.authStateChanges().listen(authController.setUser);
 class AuthController extends ChangeNotifier {
+  final UserProfileRepository _profileRepository = UserProfileRepository();
+
   User? _user;
   bool _isInitializing = true;
+  UserProfileModel? _profile;
 
   bool get isAuthenticated => _user != null;
   bool get isInitializing => _isInitializing;
@@ -20,9 +25,28 @@ class AuthController extends ChangeNotifier {
   String? get displayName => _user?.displayName;
   bool get isEmailVerified => _user?.emailVerified ?? false;
 
-  void setUser(User? user) {
+  // From the Firestore 'users' profile document — null until that
+  // document exists (no signup/onboarding screen writes it yet).
+  String? get username => _profile?.username;
+  String? get jobTitle => _profile?.jobTitle;
+
+  Future<void> setUser(User? user) async {
     _user = user;
     _isInitializing = false;
+    _profile = null;
+    notifyListeners(); // fast UI/router update, profile loads separately
+
+    if (user != null) {
+      _profile = await _profileRepository.getProfile(user.uid);
+      notifyListeners();
+    }
+  }
+
+  /// Call after the profile screen (or a future onboarding step) writes
+  /// username/jobTitle, so the UI reflects the change immediately.
+  Future<void> refreshProfile() async {
+    if (_user == null) return;
+    _profile = await _profileRepository.getProfile(_user!.uid);
     notifyListeners();
   }
 
@@ -36,6 +60,7 @@ class AuthController extends ChangeNotifier {
     // _user is also cleared by the authStateChanges listener in main.dart,
     // but we set it here too so isAuthenticated flips immediately for the UI.
     _user = null;
+    _profile = null;
     notifyListeners();
   }
 }

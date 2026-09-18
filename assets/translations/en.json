@@ -254,5 +254,40 @@
   "interview_stage_hrInterview": "HR Interview",
   "interview_stage_technicalInterview": "Technical Interview",
   "interview_stage_assessment": "Assessment",
-  "interview_stage_finalInterview": "Final Interview"
+  "interview_stage_finalInterview": "Final Interview",
+
+
+  "home_insights_title": "Your Insights",
+
+  "error_load_failed": "Couldn't load your applications. Please try again.",
+  "applications_filter_empty_title": "No applications match this filter",
+  "applications_show_all": "Show all",
+
+  "cv_upload_title": "My CVs",
+  "cv_upload_add_button": "Upload CV",
+  "cv_upload_uploading": "Uploading...",
+  "cv_upload_empty_title": "No CVs yet",
+  "cv_upload_empty_subtitle": "Upload a CV to attach it to your applications",
+  "cv_upload_success": "CV uploaded successfully",
+  "cv_upload_error": "Something went wrong, please try again",
+  "cv_upload_delete_confirm_title": "Delete this CV?",
+  "cv_upload_delete_confirm_body": "\"{name}\" will be permanently deleted.",
+  "common_cancel": "Cancel",
+  "common_delete": "Delete",
+
+
+  "home_total_applications": "Applications",
+  "home_total_interviews": "Interviews",
+  "home_total_cvs": "CVs",
+  "home_practice_title": "Practice Interview",
+  "home_practice_subtitle": "Prepare for your next interview with practice questions",
+  "home_cv_tips_title": "CV Improvement Tips",
+
+  "home_error_loading": "Something went wrong while loading the home screen",
+  "home_retry": "Retry",
+
+  "confirm_delete_title": "Delete Application?",
+  "confirm_delete_message": "This will permanently delete this application. This action cannot be undone.",
+  "error_delete_failed": "Failed to delete. Please try again.",
+  "confirm_delete_interview_message": "This will permanently delete this interview. This action cannot be undone."
 }

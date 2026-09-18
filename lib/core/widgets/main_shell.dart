@@ -45,9 +45,10 @@ class MainShell extends StatelessWidget {
     );
   }
 
-  /// FAB is shown on Home (0), Applications (1) and Interviews (2).
-  /// Statistics (3) and Profile (4) have no FAB.
-  bool _showFab(int index) => index == 0 || index == 1 || index == 2;
+  /// FAB is shown on Applications (1) and Interviews (2) only.
+  /// Home (0) has its own "Add Application"/"Add Interview" quick actions,
+  /// so no FAB there. Statistics (3) and Profile (4) have no FAB either.
+  bool _showFab(int index) => index == 1 || index == 2;
 
   Widget? _buildFab(BuildContext context, {bool extended = false}) {
     final index = navigationShell.currentIndex;

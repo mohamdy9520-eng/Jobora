@@ -14,10 +14,6 @@ import 'providers/interview_provider.dart';
 class AddInterviewScreen extends StatefulWidget {
   const AddInterviewScreen({super.key, this.preselectedApplicationId});
 
-  /// When launched from an Application's own flow (e.g. "Mark as
-  /// Interview"), the application is already known and the picker step
-  /// is skipped. When launched from the Interviews tab FAB, this is
-  /// null and the user picks from their existing applications below.
   final String? preselectedApplicationId;
 
   @override
@@ -27,7 +23,7 @@ class AddInterviewScreen extends StatefulWidget {
 class _AddInterviewScreenState extends State<AddInterviewScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  ApplicationModel? _selectedApplication;
+  String? _selectedApplicationId;
   DateTime? _date;
   TimeOfDay? _time;
   InterviewFormat _format = InterviewFormat.online;
@@ -46,18 +42,7 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
   void initState() {
     super.initState();
     if (widget.preselectedApplicationId != null) {
-      // Resolve against the provider once the first frame is up, since
-      // context.read is safe post-frame and we don't want to depend on
-      // build-time provider lookups inside initState.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final app = context
-            .read<ApplicationProvider>()
-            .byId(widget.preselectedApplicationId!);
-        if (app != null) {
-          setState(() => _selectedApplication = app);
-        }
-      });
+      _selectedApplicationId = widget.preselectedApplicationId;
     }
   }
 
@@ -91,7 +76,7 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
   }
 
   Future<void> _submit() async {
-    if (_selectedApplication == null) {
+    if (_selectedApplicationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('interviews_validation_select_application'))),
       );
@@ -105,7 +90,9 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
     }
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final app = _selectedApplication!;
+    final applications = context.read<ApplicationProvider>().applications;
+    final app = applications.firstWhere((a) => a.id == _selectedApplicationId);
+
     final dateTime = DateTime(
       _date!.year,
       _date!.month,
@@ -117,7 +104,7 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
     setState(() => _isSaving = true);
 
     final interview = InterviewModel(
-      id: '', // ignored by the repository — it always assigns the real id
+      id: '',
       applicationId: app.id,
       companyName: app.companyName,
       position: app.position,
@@ -141,8 +128,6 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
     try {
       await context.read<InterviewProvider>().create(interview);
 
-      // Only push the application forward to "interview" — never pull it
-      // backward from a later stage like offer/rejected/withdrawn.
       const earlyStatuses = {
         ApplicationStatus.saved,
         ApplicationStatus.applied,
@@ -173,6 +158,10 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
   Widget build(BuildContext context) {
     final applications = context.watch<ApplicationProvider>().applications;
 
+    final selectedApp = applications.any((a) => a.id == _selectedApplicationId)
+        ? applications.firstWhere((a) => a.id == _selectedApplicationId)
+        : null;
+
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('interviews_add_title'))),
       body: SafeArea(
@@ -195,8 +184,8 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
                         subtitle: context.tr('interviews_no_applications_subtitle'),
                       )
                     else
-                      DropdownButtonFormField<ApplicationModel>(
-                        initialValue: _selectedApplication,
+                      DropdownButtonFormField<String>(
+                        value: _selectedApplicationId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           hintText: context.tr('interviews_select_application_hint'),
@@ -205,24 +194,24 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
                         items: [
                           for (final app in applications)
                             DropdownMenuItem(
-                              value: app,
+                              value: app.id,
                               child: Text('${app.companyName} — ${app.position}',
                                   overflow: TextOverflow.ellipsis),
                             ),
                         ],
-                        onChanged: (value) => setState(() => _selectedApplication = value),
+                        onChanged: (value) => setState(() => _selectedApplicationId = value),
                       ),
                     const SizedBox(height: AppSpacing.xl),
-                  ] else if (_selectedApplication != null)
+                  ] else if (selectedApp != null)
                     AppCard(
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(_selectedApplication!.companyName,
+                        title: Text(selectedApp.companyName,
                             style: AppTextStyles.h3(Theme.of(context).colorScheme.onSurface)),
-                        subtitle: Text(_selectedApplication!.position),
+                        subtitle: Text(selectedApp.position),
                       ),
                     ),
-                  if (_selectedApplication != null || widget.preselectedApplicationId == null) ...[
+                  if (_selectedApplicationId != null || widget.preselectedApplicationId == null) ...[
                     Text(context.tr('interview_field_date'),
                         style: AppTextStyles.labelMedium(Theme.of(context).colorScheme.onSurface)),
                     const SizedBox(height: AppSpacing.xs),
@@ -286,7 +275,7 @@ class _AddInterviewScreenState extends State<AddInterviewScreen> {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     DropdownButtonFormField<InterviewStage>(
-                      initialValue: _stage,
+                      value: _stage,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: context.tr('interview_field_stage'),

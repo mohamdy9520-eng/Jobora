@@ -14,6 +14,7 @@ import 'core/services/app_settings_controller.dart';
 import 'core/services/auth_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'features/applications/providers/application_provider.dart';
+import 'features/cv/providers/cv_provider.dart';
 import 'features/home/home_controller.dart';
 import 'features/interviews/providers/interview_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
@@ -97,6 +98,10 @@ class _JobMateAppState extends State<JobMateApp> {
         // via updateAuth — same proxy pattern as the providers above.
         ChangeNotifierProxyProvider<AuthController, SubscriptionProvider>(
           create: (_) => SubscriptionProvider(),
+          update: (_, auth, provider) => provider!..updateAuth(auth.uid),
+        ),
+        ChangeNotifierProxyProvider<AuthController, CvProvider>(
+          create: (_) => CvProvider(),
           update: (_, auth, provider) => provider!..updateAuth(auth.uid),
         ),
         ChangeNotifierProxyProvider<ApplicationProvider, StatisticsController>(

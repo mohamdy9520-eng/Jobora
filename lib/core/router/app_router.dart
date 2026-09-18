@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
 import '../../features/interviews/add_interview_screen.dart';
+import '../../features/interviews/edit_interview_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/subscriptions/screens/subscriptions_screen.dart';
+import '../../features/cv/screens/cv_upload_screen.dart';
 import '../services/app_settings_controller.dart';
 import '../services/auth_controller.dart';
 import '../widgets/main_shell.dart';
@@ -38,10 +40,12 @@ class AppRoutes {
   static const applicationDetails = '/application';
   static const editApplication = '/application';
   static const interviews = '/interviews';
+  static const editInterview = '/interview';
   static const statistics = '/statistics';
   static const profile = '/profile';
   static const currencySettings = '/settings/currency';
   static const addInterview = '/add-interview';
+  static const cvUpload = '/cv-upload';
 
 
   // New settings screens — same pattern as currencySettings: top-level
@@ -108,6 +112,11 @@ GoRouter buildAppRouter({
             EditApplicationScreen(applicationId: s.pathParameters['id']!),
       ),
       GoRoute(
+        path: '${AppRoutes.editInterview}/:id/edit',
+        builder: (c, s) =>
+            EditInterviewScreen(interviewId: s.pathParameters['id']!),
+      ),
+      GoRoute(
         path: AppRoutes.currencySettings,
         builder: (c, s) => const CurrencySelectionScreen(fromSettings: true),
       ),
@@ -116,6 +125,10 @@ GoRouter buildAppRouter({
         builder: (c, s) => AddInterviewScreen(
           preselectedApplicationId: s.uri.queryParameters['applicationId'],
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.cvUpload,
+        builder: (c, s) => const CvUploadScreen(),
       ),
       GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.terms, builder: (c, s) => const TermsScreen()),
@@ -129,7 +142,17 @@ GoRouter buildAppRouter({
             GoRoute(path: AppRoutes.home, builder: (c, s) => const HomeScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: AppRoutes.applications, builder: (c, s) => const ApplicationsScreen()),
+            GoRoute(
+              path: AppRoutes.applications,
+              builder: (c, s) => ApplicationsScreen(
+                // TODO: ApplicationsScreen doesn't accept this parameter
+                // yet — add an `initialFilter` (or similar) constructor
+                // param there and apply it to the list query, e.g.
+                // filtering by status in ('interview', 'offer', ...).
+                // Values pushed from Home: active | interview | waiting | offer
+                initialFilter: s.uri.queryParameters['filter'],
+              ),
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.interviews, builder: (c, s) => const InterviewsScreen()),
