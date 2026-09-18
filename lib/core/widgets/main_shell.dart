@@ -78,6 +78,44 @@ class MainShell extends StatelessWidget {
     );
   }
 
+  /// The default Material 3 label size (12sp) doesn't fit "Applications"
+  /// in the space each of the 5 equally-sized destinations gets on a
+  /// phone-width screen, so it wraps to a second line and leaves a
+  /// stray "s". Shrinking just the label style (locally, via a Theme
+  /// override) fixes that without touching the rest of the app's
+  /// typography.
+  Widget _buildBottomNavBar(BuildContext context, List<_NavItem> items) {
+    final baseTheme = Theme.of(context);
+    return Theme(
+      data: baseTheme.copyWith(
+        navigationBarTheme: baseTheme.navigationBarTheme.copyWith(
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 10.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected
+                  ? baseTheme.colorScheme.onSurface
+                  : baseTheme.colorScheme.onSurfaceVariant,
+            );
+          }),
+        ),
+      ),
+      child: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _onDestinationSelected,
+        destinations: [
+          for (final item in items)
+            NavigationDestination(
+              icon: Icon(item.icon),
+              selectedIcon: Icon(item.selectedIcon),
+              label: item.label,
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final useRail = context.isTablet || context.isDesktop;
@@ -87,18 +125,7 @@ class MainShell extends StatelessWidget {
       return Scaffold(
         body: navigationShell,
         floatingActionButton: _buildFab(context),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: _onDestinationSelected,
-          destinations: [
-            for (final item in items)
-              NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-              ),
-          ],
-        ),
+        bottomNavigationBar: _buildBottomNavBar(context, items),
       );
     }
 

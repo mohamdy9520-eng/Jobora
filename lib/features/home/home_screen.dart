@@ -490,12 +490,14 @@ class _CounterCard extends StatelessWidget {
             child: Text(value, style: AppTextStyles.h1(textColor)),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTextStyles.bodySmall(textColor),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: AppTextStyles.bodySmall(textColor),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
           ),
         ],
       ),
@@ -604,6 +606,7 @@ class _QuickAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Container(
           width: 96,
+          height: 96,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -611,13 +614,20 @@ class _QuickAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: AppColors.primary),
               const SizedBox(height: AppSpacing.sm),
-              Text(label,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
                   style: AppTextStyles.bodySmall(textColor),
                   textAlign: TextAlign.center,
-                  maxLines: 2),
+                  maxLines: 2,
+                ),
+              ),
             ],
           ),
         ),

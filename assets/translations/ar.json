@@ -287,6 +287,14 @@
   "confirm_delete_title": "حذف الطلب؟",
   "confirm_delete_message": "سيؤدي هذا إلى حذف هذا الطلب نهائياً. لا يمكن التراجع عن هذا الإجراء.",
   "error_delete_failed": "فشل الحذف. يرجى المحاولة مرة أخرى.",
-  "confirm_delete_interview_message": "سيؤدي هذا إلى حذف هذه المقابلة نهائياً. لا يمكن التراجع عن هذا الإجراء."
+  "confirm_delete_interview_message": "سيؤدي هذا إلى حذف هذه المقابلة نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+
+
+  "edit_application_title": "تعديل التقديم",
+  "error_application_not_found": "لم يتم العثور على التقديم.",
+  "source_companyWebsite": "موقع الشركة",
+  "delete": "حذف",
+  "interviews_edit_title": "تعديل المقابلة",
+  "error_interview_not_found": "لم يتم العثور على المقابلة."
 }
 

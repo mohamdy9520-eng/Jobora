@@ -289,5 +289,13 @@
   "confirm_delete_title": "Delete Application?",
   "confirm_delete_message": "This will permanently delete this application. This action cannot be undone.",
   "error_delete_failed": "Failed to delete. Please try again.",
-  "confirm_delete_interview_message": "This will permanently delete this interview. This action cannot be undone."
+  "confirm_delete_interview_message": "This will permanently delete this interview. This action cannot be undone.",
+
+
+  "edit_application_title": "Edit Application",
+  "error_application_not_found": "Application not found.",
+  "source_companyWebsite": "Company Website",
+  "delete": "Delete",
+  "interviews_edit_title": "Edit Interview",
+  "error_interview_not_found": "Interview not found."
 }
