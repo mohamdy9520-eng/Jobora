@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
+import '../../features/cover_letter/screen/cover_letter_screen.dart';
 import '../../features/interviews/add_interview_screen.dart';
 import '../../features/interviews/edit_interview_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
@@ -55,6 +56,8 @@ class AppRoutes {
   static const notifications = '/settings/notifications';
   static const subscriptions = '/settings/subscriptions';
   static const terms = '/settings/terms';
+  static const coverLetter = '/cover-letter';
+
 }
 
 GoRouter buildAppRouter({
@@ -129,6 +132,10 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.cvUpload,
         builder: (c, s) => const CvUploadScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.coverLetter,
+        builder: (context, state) => const CoverLetterScreen(),
       ),
       GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.terms, builder: (c, s) => const TermsScreen()),

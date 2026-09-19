@@ -16,7 +16,6 @@ dependencies:
   flutter_bloc: ^8.1.6
   equatable: ^2.0.5
   provider: ^6.1.2
-
   # Routing
   go_router: ^14.2.0
 
@@ -53,6 +52,7 @@ dependencies:
   # PDF export
   pdf: ^3.11.0
   printing: ^5.13.1
+
 
   # Subscriptions
   purchases_flutter: ^8.2.1 # RevenueCat

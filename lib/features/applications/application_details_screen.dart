@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../core/models/cv_model.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/cv_picker_field.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/status_badge.dart';
+import '../cv/providers/cv_provider.dart';
 import 'providers/application_provider.dart';
 
 class ApplicationDetailsScreen extends StatelessWidget {
@@ -14,6 +18,98 @@ class ApplicationDetailsScreen extends StatelessWidget {
   final String applicationId;
 
   String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+
+  Future<void> _openCv(BuildContext context, CvModel cv) async {
+    var opened = false;
+    final uri = Uri.tryParse(cv.downloadUrl);
+    if (uri != null) {
+      try {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
+    }
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('error_open_cv'))),
+      );
+    }
+  }
+
+  Widget _buildCvCard(BuildContext context, String cvId, Color textColor) {
+    final cvProvider = context.watch<CvProvider>();
+    final cv = cvProvider.byId(cvId);
+
+    Widget content;
+    if (cv != null) {
+      content = InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _openCv(context, cv),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              Icon(CvPickerField.iconFor(cv.fileType), color: textColor),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cv.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMedium(textColor),
+                    ),
+                    if (cv.formattedSize.isNotEmpty)
+                      Text(cv.formattedSize, style: AppTextStyles.bodySmall(textColor)),
+                  ],
+                ),
+              ),
+              Icon(Icons.open_in_new, size: 18, color: textColor),
+            ],
+          ),
+        ),
+      );
+    } else if (cvProvider.isLoading) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else {
+      // The CV was linked, then deleted afterwards.
+      content = Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            Icon(Icons.link_off, color: Theme.of(context).colorScheme.error),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                context.tr('cv_unavailable'),
+                style: AppTextStyles.bodyMedium(Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.tr('section_cv'), style: AppTextStyles.h3(textColor)),
+          const SizedBox(height: AppSpacing.xs),
+          content,
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +192,10 @@ class ApplicationDetailsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (app.cvId != null) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildCvCard(context, app.cvId!, textColor),
+                ],
                 if (app.recruiterName != null ||
                     app.recruiterEmail != null ||
                     app.recruiterPhone != null ||

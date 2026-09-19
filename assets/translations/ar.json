@@ -295,6 +295,15 @@
   "source_companyWebsite": "موقع الشركة",
   "delete": "حذف",
   "interviews_edit_title": "تعديل المقابلة",
-  "error_interview_not_found": "لم يتم العثور على المقابلة."
+  "error_interview_not_found": "لم يتم العثور على المقابلة.",
+
+  "field_cv": "السيرة الذاتية (CV)",
+  "cv_none_selected": "بدون CV",
+  "cv_no_cv": "بدون CV",
+  "cv_select_title": "اختار CV",
+  "cv_empty_hint": "لسه ماعندكش CVs مرفوعة. ارفع واحد من شاشة الـ CVs.",
+  "cv_unavailable": "الـ CV ده اتمسح أو مش متاح",
+  "section_cv": "السيرة الذاتية",
+  "error_open_cv": "قدرناش نفتح الملف"
 }
 

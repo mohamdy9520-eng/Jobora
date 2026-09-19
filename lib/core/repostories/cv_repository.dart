@@ -2,22 +2,28 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/cv_model.dart';
 
-/// Firestore + Firebase Storage backed repository for CVs.
+/// Firestore (metadata) + Cloudinary (file storage) repository for CVs.
 ///
-/// Storage layout: users/{uid}/cvs/{cvId}.{ext}
 /// Firestore layout: users/{uid}/cvs/{cvId} (metadata only — the file
-/// itself lives in Storage; Firestore just points at it).
+/// itself lives on Cloudinary; Firestore just points at it).
 class CvRepository {
-  CvRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
+  CvRepository({FirebaseFirestore? firestore, Dio? dio})
       : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _dio = dio ?? Dio();
+
+  // TODO: paste your real Cloud name from the Cloudinary dashboard.
+  static const String _cloudName = 'ucyu1gqf';
+
+  // Must match the preset name exactly (case-sensitive) and be Unsigned.
+  static const String _uploadPreset = 'Jobora_CV';
 
   final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+  final Dio _dio;
 
   CollectionReference<Map<String, dynamic>> _collection(String uid) =>
       _firestore.collection('users').doc(uid).collection('cvs');
@@ -33,7 +39,19 @@ class CvRepository {
     );
   }
 
-  /// Uploads [file] to Storage, writes its metadata to Firestore, and
+  /// Extracts Cloudinary's error message from a failed response, if any.
+  String? _extractServerMessage(dynamic body) {
+    if (body is Map) {
+      final error = body['error'];
+      if (error is Map) {
+        final message = error['message'];
+        if (message != null) return message.toString();
+      }
+    }
+    return null;
+  }
+
+  /// Uploads [file] to Cloudinary, writes its metadata to Firestore, and
   /// returns the saved [CvModel]. [onProgress] reports 0.0–1.0.
   Future<CvModel> upload(
       String uid,
@@ -43,43 +61,68 @@ class CvRepository {
       }) async {
     final docRef = _collection(uid).doc();
     final ext = fileName.contains('.') ? fileName.split('.').last : '';
-    final storagePath =
-        'users/$uid/cvs/${docRef.id}${ext.isNotEmpty ? '.$ext' : ''}';
-    final storageRef = _storage.ref().child(storagePath);
 
-    final uploadTask = storageRef.putFile(file);
-    if (onProgress != null) {
-      uploadTask.snapshotEvents.listen((snapshot) {
-        if (snapshot.totalBytes > 0) {
-          onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
-        }
-      });
+    // For "raw" uploads Cloudinary keeps the extension as part of the
+    // public ID, so the delivered URL ends with the real file extension.
+    final publicId =
+        'cvs/$uid/${docRef.id}${ext.isNotEmpty ? '.$ext' : ''}';
+
+    if (kDebugMode) {
+      debugPrint('[CvRepository] cloud = $_cloudName, preset = $_uploadPreset');
+      debugPrint('[CvRepository] uploading to = $publicId');
     }
 
-    final snapshot = await uploadTask;
-    final downloadUrl = await storageRef.getDownloadURL();
-    final sizeBytes = snapshot.metadata?.size ?? await file.length();
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      'upload_preset': _uploadPreset,
+      'public_id': publicId,
+    });
 
-    final model = CvModel(
-      id: docRef.id,
-      fileName: fileName,
-      downloadUrl: downloadUrl,
-      storagePath: storagePath,
-      fileSizeBytes: sizeBytes,
-      uploadedAt: DateTime.now(),
-      fileType: CvModel.inferType(fileName),
-    );
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        'https://api.cloudinary.com/v1_1/$_cloudName/raw/upload',
+        data: formData,
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            onProgress?.call(sent / total);
+          }
+        },
+      );
 
-    await docRef.set(model.toMap());
-    return model;
+      final data = response.data ?? <String, dynamic>{};
+      final downloadUrl = (data['secure_url'] as String?) ?? '';
+      final storagePath = (data['public_id'] as String?) ?? publicId;
+      final sizeBytes =
+          (data['bytes'] as num?)?.toInt() ?? await file.length();
+
+      if (downloadUrl.isEmpty) {
+        throw Exception('Upload succeeded but no URL was returned.');
+      }
+
+      final model = CvModel(
+        id: docRef.id,
+        fileName: fileName,
+        downloadUrl: downloadUrl,
+        storagePath: storagePath,
+        fileSizeBytes: sizeBytes,
+        uploadedAt: DateTime.now(),
+        fileType: CvModel.inferType(fileName),
+      );
+
+      await docRef.set(model.toMap());
+      return model;
+    } on DioException catch (e) {
+      final serverMsg = _extractServerMessage(e.response?.data);
+      final message = serverMsg ?? e.message ?? 'Upload failed';
+      debugPrint('[CvRepository] Cloudinary error: $message');
+      throw Exception(message);
+    }
   }
 
+  /// Removes the Firestore record. Deleting the file itself from Cloudinary
+  /// requires a signed request (API secret), which must never live inside
+  /// the app, so the file stays on Cloudinary. That's fine for an MVP.
   Future<void> delete(String uid, CvModel cv) async {
-    // Storage deletion failure (e.g. file already gone) shouldn't block
-    // removing the Firestore record the user is looking at.
-    try {
-      await _storage.ref().child(cv.storagePath).delete();
-    } catch (_) {}
     await _collection(uid).doc(cv.id).delete();
   }
 }

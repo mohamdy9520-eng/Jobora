@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/models/application_model.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/cv_picker_field.dart';
 import '../providers/application_provider.dart';
 
 /// Edit screen for an existing application. Loads the current model from
@@ -33,6 +34,7 @@ class _EditApplicationScreenState extends State<EditApplicationScreen> {
   ApplicationStatus _status = ApplicationStatus.applied;
   WorkType? _workType;
   ApplicationSource? _source;
+  String? _cvId;
   bool _showAdditionalDetails = false;
   bool _isSaving = false;
   bool _initialized = false;
@@ -63,6 +65,7 @@ class _EditApplicationScreenState extends State<EditApplicationScreen> {
     _status = model.status;
     _workType = model.workType;
     _source = model.source;
+    _cvId = model.cvId;
     // Auto-expand "Additional Details" if any of those fields already
     // have data, so the user doesn't think their data disappeared.
     _showAdditionalDetails = (model.jobUrl?.isNotEmpty ?? false) ||
@@ -71,6 +74,7 @@ class _EditApplicationScreenState extends State<EditApplicationScreen> {
         (model.location?.isNotEmpty ?? false) ||
         model.workType != null ||
         model.source != null ||
+        model.cvId != null ||
         (model.notes?.isNotEmpty ?? false);
   }
 
@@ -90,6 +94,8 @@ class _EditApplicationScreenState extends State<EditApplicationScreen> {
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
         workType: _workType,
         source: _source,
+        cvId: _cvId,
+        clearCvId: _cvId == null,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         updatedAt: DateTime.now(),
       );
@@ -248,6 +254,11 @@ class _EditApplicationScreenState extends State<EditApplicationScreen> {
                           value: s, child: Text(context.tr(s.localizationKey))))
                           .toList(),
                       onChanged: (v) => setState(() => _source = v),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    CvPickerField(
+                      selectedCvId: _cvId,
+                      onChanged: (id) => setState(() => _cvId = id),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextFormField(

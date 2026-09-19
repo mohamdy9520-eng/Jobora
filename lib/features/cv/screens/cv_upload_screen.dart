@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/models/cv_model.dart';
 import '../providers/cv_provider.dart';
@@ -31,12 +33,39 @@ class CvUploadScreen extends StatelessWidget {
           SnackBar(content: Text(context.tr('cv_upload_success'))),
         );
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('CV upload error: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('cv_upload_error'))),
+          SnackBar(
+            content: Text(
+              kDebugMode
+                  ? '${context.tr('cv_upload_error')}\n$e'
+                  : context.tr('cv_upload_error'),
+            ),
+          ),
         );
       }
+    }
+  }
+
+  /// Opens the CV file in an external app (browser / PDF viewer).
+  Future<void> _openCv(BuildContext context, CvModel cv) async {
+    final uri = Uri.tryParse(cv.downloadUrl);
+    var opened = false;
+
+    if (uri != null && uri.hasScheme) {
+      try {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        debugPrint('CV open error: $e');
+      }
+    }
+
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('cv_upload_error'))),
+      );
     }
   }
 
@@ -99,6 +128,7 @@ class CvUploadScreen extends StatelessWidget {
                     final cv = provider.cvs[index];
                     return _CvCard(
                       cv: cv,
+                      onOpen: () => _openCv(context, cv),
                       onDelete: () => _confirmDelete(context, cv),
                     );
                   },
@@ -195,9 +225,14 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _CvCard extends StatelessWidget {
-  const _CvCard({required this.cv, required this.onDelete});
+  const _CvCard({
+    required this.cv,
+    required this.onOpen,
+    required this.onDelete,
+  });
 
   final CvModel cv;
+  final VoidCallback onOpen;
   final VoidCallback onDelete;
 
   IconData get _icon {
@@ -218,7 +253,9 @@ class _CvCard extends StatelessWidget {
     final locale = Localizations.localeOf(context).toString();
     return Card(
       margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
+        onTap: onOpen,
         leading: Icon(_icon, size: 28.sp),
         title: Text(cv.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(

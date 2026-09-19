@@ -297,5 +297,14 @@
   "source_companyWebsite": "Company Website",
   "delete": "Delete",
   "interviews_edit_title": "Edit Interview",
-  "error_interview_not_found": "Interview not found."
+  "error_interview_not_found": "Interview not found.",
+
+  "field_cv": "CV",
+  "cv_none_selected": "No CV selected",
+  "cv_no_cv": "No CV",
+  "cv_select_title": "Choose a CV",
+  "cv_empty_hint": "You haven't uploaded any CVs yet. Upload one from the CVs screen",
+  "cv_unavailable": "This CV was deleted or is unavailable",
+  "section_cv": "CV",
+  "error_open_cv": "Couldn't open the file"
 }

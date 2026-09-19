@@ -4,10 +4,11 @@ import '../../core/localization/app_localizations.dart';
 import '../../core/models/application_model.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
+import '../../core/widgets/cv_picker_field.dart';
 import 'providers/application_provider.dart';
 
 /// Keeps the required flow short (company + position + status) and hides
-/// everything else — salary, recruiter, notes, source — behind
+/// everything else — salary, recruiter, notes, source, CV — behind
 /// "Additional Details" so adding an application takes under a minute.
 class AddApplicationScreen extends StatefulWidget {
   const AddApplicationScreen({super.key});
@@ -29,6 +30,7 @@ class _AddApplicationScreenState extends State<AddApplicationScreen> {
   ApplicationStatus _status = ApplicationStatus.applied;
   WorkType? _workType;
   ApplicationSource? _source;
+  String? _cvId;
   bool _showAdditionalDetails = false;
   bool _isSaving = false;
 
@@ -55,6 +57,7 @@ class _AddApplicationScreenState extends State<AddApplicationScreen> {
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
         workType: _workType,
         source: _source,
+        cvId: _cvId,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         createdAt: now,
         updatedAt: now,
@@ -183,6 +186,11 @@ class _AddApplicationScreenState extends State<AddApplicationScreen> {
                           value: s, child: Text(context.tr(s.localizationKey))))
                           .toList(),
                       onChanged: (v) => setState(() => _source = v),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    CvPickerField(
+                      selectedCvId: _cvId,
+                      onChanged: (id) => setState(() => _cvId = id),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextFormField(

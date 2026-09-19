@@ -290,9 +290,9 @@ class HomeScreen extends StatelessWidget {
                       _QuickAction(
                         icon: Icons.mail_outline,
                         label: context.tr('home_create_cover_letter'),
-                        // TODO: wire once the cover letter
-                        // screen/route exists.
-                        onTap: () {},
+                        // ✅ Cover letter screen is now wired.
+                        onTap: () =>
+                            context.push(AppRoutes.coverLetter),
                       ),
                     ],
                   ),

@@ -62,6 +62,7 @@ class CvProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (Object err, StackTrace _) {
+        debugPrint('[CvProvider] watchAll error: $err');
         _isLoading = false;
         _error = err.toString();
         notifyListeners();
@@ -91,7 +92,8 @@ class CvProvider extends ChangeNotifier {
       _isUploading = false;
       notifyListeners();
       return cv;
-    } catch (err) {
+    } catch (err, st) {
+      debugPrint('[CvProvider] upload failed: $err\n$st');
       _isUploading = false;
       _error = err.toString();
       notifyListeners();
@@ -107,6 +109,7 @@ class CvProvider extends ChangeNotifier {
     try {
       await _repository.delete(uid, cv);
     } catch (err) {
+      debugPrint('[CvProvider] delete failed: $err');
       _error = err.toString();
       notifyListeners();
       rethrow;

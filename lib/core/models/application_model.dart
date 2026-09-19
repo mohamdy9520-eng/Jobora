@@ -110,6 +110,9 @@ class ApplicationModel {
   int get daysSinceApplied => DateTime.now().difference(applicationDate).inDays;
 
   /// Returns a copy of this application with the given fields replaced.
+  ///
+  /// Pass [clearCvId] = true to explicitly remove the linked CV (a plain
+  /// `cvId: null` can't do that because null means "keep the current value").
   ApplicationModel copyWith({
     String? id,
     String? companyName,
@@ -130,6 +133,7 @@ class ApplicationModel {
     String? recruiterPhone,
     String? recruiterLinkedIn,
     String? cvId,
+    bool clearCvId = false,
     String? coverLetterId,
     String? notes,
     DateTime? createdAt,
@@ -154,7 +158,7 @@ class ApplicationModel {
       recruiterEmail: recruiterEmail ?? this.recruiterEmail,
       recruiterPhone: recruiterPhone ?? this.recruiterPhone,
       recruiterLinkedIn: recruiterLinkedIn ?? this.recruiterLinkedIn,
-      cvId: cvId ?? this.cvId,
+      cvId: clearCvId ? null : (cvId ?? this.cvId),
       coverLetterId: coverLetterId ?? this.coverLetterId,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
