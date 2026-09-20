@@ -37,6 +37,49 @@ class CoverLetterAnalysis {
 }
 
 class CoverLetterGenerator {
+  /// Wrap Latin-only text inside Arabic letters with Unicode LTR isolates so
+  /// numbers and English words keep their reading order. Set to false if the
+  /// invisible marks cause any trouble (e.g. in the PDF).
+  static const isolateLatinInArabic = true;
+
+  static const _lri = '\u2066';
+  static const _pdi = '\u2069';
+  static final _arabicChars = RegExp(r'[\u0600-\u06FF]');
+
+  static const _genericManagers = {
+    'hr',
+    'hr manager',
+    'hr team',
+    'human resources',
+    'recruiter',
+    'hiring manager',
+    'talent acquisition',
+    'unknown',
+    'n/a',
+    'na',
+    'none',
+    '-',
+    'الموارد البشرية',
+    'فريق التوظيف',
+  };
+
+  /// Returns '' when the hiring manager is missing or just a generic label
+  /// like "HR", so the letter is addressed to the hiring team instead.
+  static String cleanManager(String s) {
+    final t = s.trim();
+    return _genericManagers.contains(t.toLowerCase()) ? '' : t;
+  }
+
+  static String _ltr(String s) {
+    final t = s.trim();
+    if (!isolateLatinInArabic || t.isEmpty) return t;
+    return t.split('\n').map((line) {
+      final l = line.trim();
+      if (l.isEmpty || _arabicChars.hasMatch(l)) return l;
+      return '$_lri$l$_pdi';
+    }).join('\n');
+  }
+
   static const _stopWords = {
     'the', 'and', 'for', 'with', 'you', 'our', 'are', 'will', 'have', 'has',
     'this', 'that', 'from', 'your', 'who', 'was', 'were', 'they', 'their',
@@ -83,6 +126,7 @@ class CoverLetterGenerator {
       CoverLetterTone.friendly => 'warm and friendly but professional',
       CoverLetterTone.confident => 'confident and results-driven',
     };
+    final manager = cleanManager(i.hiringManager);
     return '''
 Write a tailored cover letter in $lang. Tone: $tone.
 Length: 250-320 words, 3-4 short paragraphs, plain text only (no markdown, no placeholders, no brackets).
@@ -93,7 +137,7 @@ Start with a salutation and end with a sign-off and the candidate's name.
 Candidate name: ${i.applicantName}
 Target job title: ${i.jobTitle}
 Company: ${i.company}
-Hiring manager: ${i.hiringManager.isEmpty ? 'unknown' : i.hiringManager}
+Hiring manager: ${manager.isEmpty ? 'unknown' : manager}
 Skills: ${i.skills.isEmpty ? 'not provided' : i.skills.join(', ')}
 Experience summary: ${i.experience.isEmpty ? 'not provided' : i.experience}
 Key achievements: ${i.achievements.isEmpty ? 'not provided' : i.achievements}
@@ -109,51 +153,61 @@ Job description: ${i.jobDescription.isEmpty ? 'not provided' : i.jobDescription}
         .take(4)
         .toList();
 
+    // Latin text inside an Arabic letter gets isolated so it keeps its order.
+    String ltr(String s) => ar ? _ltr(s) : s.trim();
+    final job = ltr(i.jobTitle);
+    final co = ltr(i.company);
+
     String join(List<String> xs) {
+      if (ar && xs.every((x) => !_arabicChars.hasMatch(x))) {
+        return _ltr(xs.join(', '));
+      }
       if (xs.length <= 1) return xs.join();
       final and = ar ? ' و' : ' and ';
       return '${xs.sublist(0, xs.length - 1).join(ar ? '، ' : ', ')}$and${xs.last}';
     }
 
-    final m = i.hiringManager.trim();
+    final m = cleanManager(i.hiringManager);
     final greeting = ar
-        ? (m.isEmpty ? 'السادة فريق التوظيف في ${i.company} المحترمين،' : 'السيد/ة $m المحترم/ة،')
+        ? (m.isEmpty
+        ? 'السادة فريق التوظيف في $co المحترمين،'
+        : 'السيد/ة ${ltr(m)} المحترم/ة،')
         : 'Dear ${m.isEmpty ? 'Hiring Manager' : m},';
 
     final opening = ar
         ? switch (i.tone) {
       CoverLetterTone.formal =>
-      'أكتب إليكم للتعبير عن رغبتي في التقدّم لوظيفة ${i.jobTitle} في ${i.company}.',
+      'أكتب إليكم للتعبير عن رغبتي في التقدّم لوظيفة $job في $co.',
       CoverLetterTone.friendly =>
-      'سعدت جدًا برؤية فرصة ${i.jobTitle} في ${i.company}، وأتمنى أن أكون جزءًا من فريقكم.',
+      'سعدت جدًا برؤية فرصة $job في $co، وأتمنى أن أكون جزءًا من فريقكم.',
       CoverLetterTone.confident =>
-      'أثق بأن خلفيتي المهنية تجعلني مرشحًا مناسبًا جدًا لوظيفة ${i.jobTitle} في ${i.company}.',
+      'أثق بأن خلفيتي المهنية تجعلني مرشحًا مناسبًا جدًا لوظيفة $job في $co.',
     }
         : switch (i.tone) {
       CoverLetterTone.formal =>
-      'I am writing to express my interest in the ${i.jobTitle} position at ${i.company}.',
+      'I am writing to express my interest in the $job position at $co.',
       CoverLetterTone.friendly =>
-      'I was excited to see the ${i.jobTitle} opening at ${i.company}, and I would love to be part of your team.',
+      'I was excited to see the $job opening at $co, and I would love to be part of your team.',
       CoverLetterTone.confident =>
-      'I am confident that my background makes me an excellent fit for the ${i.jobTitle} role at ${i.company}.',
+      'I am confident that my background makes me an excellent fit for the $job role at $co.',
     };
 
     final closing = ar
         ? switch (i.tone) {
       CoverLetterTone.formal =>
-      'أشكركم على وقتكم واهتمامكم، وأرحب بفرصة مناقشة كيف يمكنني الإضافة إلى ${i.company}.',
+      'أشكركم على وقتكم واهتمامكم، وأرحب بفرصة مناقشة كيف يمكنني الإضافة إلى $co.',
       CoverLetterTone.friendly =>
-      'شكرًا لقراءتكم رسالتي، وسأكون سعيدًا بالتحدث معكم عن كيف يمكنني مساعدة ${i.company}.',
+      'شكرًا لقراءتكم رسالتي، وسأكون سعيدًا بالتحدث معكم عن كيف يمكنني مساعدة $co.',
       CoverLetterTone.confident =>
-      'أتطلع لمناقشة كيف يمكنني تحقيق نتائج ملموسة لصالح ${i.company}.',
+      'أتطلع لمناقشة كيف يمكنني تحقيق نتائج ملموسة لصالح $co.',
     }
         : switch (i.tone) {
       CoverLetterTone.formal =>
-      'Thank you for your time and consideration. I would welcome the opportunity to discuss how I can contribute to ${i.company}.',
+      'Thank you for your time and consideration. I would welcome the opportunity to discuss how I can contribute to $co.',
       CoverLetterTone.friendly =>
-      'Thank you for reading. I would love to chat about how I can help ${i.company}.',
+      'Thank you for reading. I would love to chat about how I can help $co.',
       CoverLetterTone.confident =>
-      'I look forward to discussing how I can deliver results for ${i.company}.',
+      'I look forward to discussing how I can deliver results for $co.',
     };
 
     final paragraphs = <String>[
@@ -163,10 +217,10 @@ Job description: ${i.jobDescription.isEmpty ? 'not provided' : i.jobDescription}
         ar
             ? 'تشمل خبرتي ${join(highlight)}، وهو ما يتوافق مع متطلبات هذه الوظيفة.'
             : 'My experience includes ${join(highlight)}, which aligns closely with the requirements of this role.',
-      if (i.experience.trim().isNotEmpty) i.experience.trim(),
+      if (i.experience.trim().isNotEmpty) ltr(i.experience),
       if (i.achievements.trim().isNotEmpty)
         ar
-            ? 'من أبرز إنجازاتي: ${i.achievements.trim()}'
+            ? 'من أبرز إنجازاتي:\n${ltr(i.achievements)}'
             : 'Some highlights of my work: ${i.achievements.trim()}',
       closing,
       ar ? 'مع خالص التقدير،\n${i.applicantName}' : 'Sincerely,\n${i.applicantName}',

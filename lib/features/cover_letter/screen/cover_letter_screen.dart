@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
@@ -12,6 +13,7 @@ import '../../applications/providers/application_provider.dart';
 import '../cover_letter_generator.dart';
 import '../cover_letter_pdf.dart';
 import '../service/cover_letter_ai_service.dart';
+import '../service/cover_letter_usage_service.dart';
 
 class CoverLetterScreen extends StatefulWidget {
   const CoverLetterScreen({super.key});
@@ -33,6 +35,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
   final _result = TextEditingController();
 
   final _ai = CoverLetterAiService();
+  final _usage = CoverLetterUsageService();
 
   CoverLetterTone _tone = CoverLetterTone.formal;
   bool _letterArabic = false;
@@ -40,6 +43,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
   bool _loading = false;
   String? _notice;
   CoverLetterAnalysis? _analysis;
+  int? _remaining; // AI letters left today (null = unknown)
 
   bool get _uiArabic => Localizations.localeOf(context).languageCode == 'ar';
   String _t(String en, String ar) => _uiArabic ? ar : en;
@@ -51,6 +55,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
     _initialized = true;
     _name.text = context.read<AuthController>().displayName?.trim() ?? '';
     _letterArabic = _uiArabic;
+    _loadRemaining();
   }
 
   @override
@@ -62,6 +67,17 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _loadRemaining() async {
+    final String? uid = context.read<AuthController>().uid;
+    if (uid == null || uid.isEmpty || !_ai.isConfigured) return;
+    try {
+      final left = await _usage.remaining(uid);
+      if (mounted) setState(() => _remaining = left);
+    } catch (e) {
+      debugPrint('[CoverLetterUsage] read failed: $e');
+    }
   }
 
   List<String> get _skillList => _skills.text
@@ -106,6 +122,8 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
+    final String? uid = context.read<AuthController>().uid;
+
     final input = CoverLetterInput(
       applicantName: _name.text.trim(),
       jobTitle: _jobTitle.text.trim(),
@@ -126,20 +144,55 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
 
     String text;
     String notice;
-    if (_ai.isConfigured) {
-      try {
-        text = await _ai.generate(input);
-        notice = _t('Written with AI — review and edit before sending.',
-            'اتكتب بالذكاء الاصطناعي — راجعه وعدّل عليه قبل الإرسال.');
-      } catch (_) {
-        text = CoverLetterGenerator.generate(input);
-        notice = _t('AI is busy right now, so a template version was used.',
-            'الـ AI مشغول دلوقتي، فاستخدمنا النسخة الجاهزة.');
-      }
-    } else {
+    var aiUsed = false;
+    int? left;
+
+    if (!_ai.isConfigured) {
       text = CoverLetterGenerator.generate(input);
       notice = _t('Generated from your details — edit freely.',
           'اتولّد من بياناتك — تقدر تعدّل عليه براحتك.');
+    } else {
+      // Check today's AI quota first.
+      if (uid != null && uid.isNotEmpty) {
+        try {
+          left = await _usage.remaining(uid);
+        } catch (e) {
+          debugPrint('[CoverLetterUsage] read failed: $e');
+        }
+      }
+
+      if (left == null) {
+        text = CoverLetterGenerator.generate(input);
+        notice = _t(
+            'Could not check your daily AI limit, so a template version was used.',
+            'مقدرناش نتأكد من حدك اليومي للـ AI، فاستخدمنا النسخة الجاهزة.');
+      } else if (left <= 0) {
+        text = CoverLetterGenerator.generate(input);
+        notice = _t(
+            'You have used all ${CoverLetterUsageService.dailyLimit} AI letters for today, so a template version was used.',
+            'خلّصت ${CoverLetterUsageService.dailyLimit} خطابات AI النهارده، فاستخدمنا النسخة الجاهزة.');
+      } else {
+        try {
+          text = await _ai.generate(input);
+          aiUsed = true;
+          notice = _t('Written with AI — review and edit before sending.',
+              'اتكتب بالذكاء الاصطناعي — راجعه وعدّل عليه قبل الإرسال.');
+        } catch (_) {
+          text = CoverLetterGenerator.generate(input);
+          notice = _t('AI is busy right now, so a template version was used.',
+              'الـ AI مشغول دلوقتي، فاستخدمنا النسخة الجاهزة.');
+        }
+      }
+    }
+
+    // Consume one AI letter only after the AI really succeeded.
+    if (aiUsed && uid != null && uid.isNotEmpty) {
+      try {
+        left = await _usage.consume(uid);
+      } catch (e) {
+        debugPrint('[CoverLetterUsage] consume failed: $e');
+        left = ((left ?? 1) - 1).clamp(0, CoverLetterUsageService.dailyLimit);
+      }
     }
 
     if (!mounted) return;
@@ -147,6 +200,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
       _result.text = text;
       _notice = notice;
       _analysis = CoverLetterGenerator.analyze(input.jobDescription, input.skills);
+      if (left != null) _remaining = left;
       _loading = false;
     });
   }
@@ -297,6 +351,17 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  if (_ai.isConfigured && _remaining != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Text(
+                        _t(
+                          'AI letters left today: $_remaining of ${CoverLetterUsageService.dailyLimit}',
+                          'خطابات الـ AI المتبقية النهارده: $_remaining من ${CoverLetterUsageService.dailyLimit}',
+                        ),
+                        style: AppTextStyles.bodySmall(textColor),
+                      ),
+                    ),
                   FilledButton.icon(
                     onPressed: _loading ? null : _generate,
                     icon: _loading
