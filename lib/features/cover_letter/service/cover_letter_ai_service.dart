@@ -18,23 +18,27 @@ class CoverLetterAiService {
   // Run with: flutter run --dart-define-from-file=env.json
   static const _apiKey = String.fromEnvironment('OPENROUTER_API_KEY');
 
-  // Free model ids change over time. If a model starts returning 404, replace
-  // it with another ":free" model from openrouter.ai/models.
-  static const model = 'deepseek/deepseek-v4-flash-0731:free';
+  // Free model ids change over time (llama-3.3-70b and deepseek-v4-flash were
+  // removed from the free tier). If a model starts returning 404, replace it
+  // with another ":free" model from openrouter.ai/models.
+  static const model = 'qwen/qwen3.8-27b:free';
 
   // Tried in order, ONE request each (plus one re-send without the reasoning
   // switch if a model rejects it). Different providers on purpose.
   static const models = [
     model,
-    'qwen/qwen3.8-27b:free',
     'google/gemma-4-31b-it:free',
-    // Free router: picks any available free model. Bad replies are rejected
-    // by the checks below and the app falls back to the local generator.
+    // Free router: picks any available free model. Quality varies (it may pick
+    // a specialised model), bad replies are rejected by the checks below and
+    // the app falls back to the local generator.
     'openrouter/free',
     // Optional PAID last resort (a few cents per 1000 letters, capped by the
     // key's $1 limit). Uncomment ONLY if you decide to allow paid usage:
     // 'meta-llama/llama-3.3-70b-instruct',
   ];
+
+  // Models that answered "unavailable for free" during this app run.
+  static final Set<String> _removedModels = {};
 
   // Hard deadline for ONE request. Dio's receiveTimeout only measures the
   // gap between chunks, so it does not stop a request that just keeps waiting.
@@ -87,6 +91,7 @@ Extra rules:
     Object? lastError;
 
     for (final m in models) {
+      if (_removedModels.contains(m)) continue;
       if (clock.elapsed > _totalBudget) {
         _log('stopping: time budget exceeded');
         break;
@@ -105,8 +110,19 @@ Extra rules:
         lastError = e;
         final code = e.response?.statusCode;
         _log('[$m] failed after ${took()}: ${e.type.name} status=$code');
+
+        // The free version of this model was removed: skip it from now on.
+        if (code == 404 && '${e.response?.data}'.contains('unavailable for free')) {
+          _removedModels.add(m);
+          _log('[$m] removed for this session');
+        }
         // Key/account problems affect every model: don't try the others.
         if (code == 401 || code == 402 || code == 403) rethrow;
+        // No connection at all: every other model would fail the same way.
+        if (e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.connectionTimeout) {
+          rethrow;
+        }
       }
     }
     throw lastError ?? const FormatException('AI unavailable');
