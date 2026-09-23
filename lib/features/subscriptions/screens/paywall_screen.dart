@@ -4,6 +4,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/usage_limits.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/responsive.dart';
@@ -104,6 +105,19 @@ class _PaywallScreenState extends State<PaywallScreen> {
       }
     }
   }
+
+  /// مميزات الـ Pro المعروضة في الـ Paywall. الأرقام جاية من UsageLimits
+  /// عشان اللي بنوعد بيه هو نفس اللي بنطبّقه في الـ CoverLetterUsageService.
+  List<String> _features(BuildContext context) => [
+    context.tr('paywall_feature_cover_letters', {
+      'pro': UsageLimits.proCoverLettersPerDay.toString(),
+      'free': UsageLimits.freeCoverLettersPerDay.toString(),
+    }),
+    context.tr('paywall_feature_practice'),
+    // ⚠️ سيب السطر ده لحد ما الإعلانات تتضاف للتطبيق فعلًا؛
+    // وعد "بدون إعلانات" من غير إعلانات أصلًا مش مناسب.
+    context.tr('paywall_feature_no_ads'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -210,12 +224,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                 planName: context.tr('paywall_monthly_plan_name'),
                                 planDescription:
                                 context.tr('paywall_monthly_plan_desc'),
-                                features: const [
-                                  'paywall_feature_1',
-                                  'paywall_feature_2',
-                                  'paywall_feature_3',
-                                  'paywall_feature_4',
-                                ].map((k) => context.tr(k)).toList(),
+                                features: _features(context),
                               ),
                             ],
                           ),

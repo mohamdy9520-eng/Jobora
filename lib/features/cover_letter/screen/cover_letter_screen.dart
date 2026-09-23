@@ -10,6 +10,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../applications/providers/application_provider.dart';
+import '../../subscriptions/providers/subscription_provider.dart';
 import '../cover_letter_generator.dart';
 import '../cover_letter_pdf.dart';
 import '../service/cover_letter_ai_service.dart';
@@ -45,6 +46,11 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
   CoverLetterAnalysis? _analysis;
   int? _remaining; // AI letters left today (null = unknown)
 
+  // Last known plan. Used to reload the remaining count when the user
+  // subscribes (or the subscription state finishes loading) while this
+  // screen is open.
+  bool _isPro = false;
+
   bool get _uiArabic => Localizations.localeOf(context).languageCode == 'ar';
   String _t(String en, String ar) => _uiArabic ? ar : en;
 
@@ -55,6 +61,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
     _initialized = true;
     _name.text = context.read<AuthController>().displayName?.trim() ?? '';
     _letterArabic = _uiArabic;
+    _isPro = context.read<SubscriptionProvider>().isPro;
     _loadRemaining();
   }
 
@@ -73,7 +80,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
     final String? uid = context.read<AuthController>().uid;
     if (uid == null || uid.isEmpty || !_ai.isConfigured) return;
     try {
-      final left = await _usage.remaining(uid);
+      final left = await _usage.remaining(uid, isPro: _isPro);
       if (mounted) setState(() => _remaining = left);
     } catch (e) {
       debugPrint('[CoverLetterUsage] read failed: $e');
@@ -124,6 +131,11 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
 
     final String? uid = context.read<AuthController>().uid;
 
+    // Read the plan fresh at the moment of generating, so a subscription
+    // that just went through is respected immediately.
+    final isPro = context.read<SubscriptionProvider>().isPro;
+    final limit = CoverLetterUsageService.limitFor(isPro: isPro);
+
     final input = CoverLetterInput(
       applicantName: _name.text.trim(),
       jobTitle: _jobTitle.text.trim(),
@@ -155,7 +167,7 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
       // Check today's AI quota first.
       if (uid != null && uid.isNotEmpty) {
         try {
-          left = await _usage.remaining(uid);
+          left = await _usage.remaining(uid, isPro: isPro);
         } catch (e) {
           debugPrint('[CoverLetterUsage] read failed: $e');
         }
@@ -168,9 +180,13 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
             'مقدرناش نتأكد من حدك اليومي للـ AI، فاستخدمنا النسخة الجاهزة.');
       } else if (left <= 0) {
         text = CoverLetterGenerator.generate(input);
-        notice = _t(
-            'You have used all ${CoverLetterUsageService.dailyLimit} AI letters for today, so a template version was used.',
-            'خلّصت ${CoverLetterUsageService.dailyLimit} خطابات AI النهارده، فاستخدمنا النسخة الجاهزة.');
+        notice = isPro
+            ? _t(
+            'You have used all $limit AI letters for today, so a template version was used.',
+            'خلّصت $limit خطابات AI النهارده، فاستخدمنا النسخة الجاهزة.')
+            : _t(
+            'You have used all $limit AI letters for today, so a template version was used. Upgrade to Pro for ${CoverLetterUsageService.proDailyLimit} a day.',
+            'خلّصت $limit خطابات AI النهارده، فاستخدمنا النسخة الجاهزة. اشترك في Pro عشان تاخد ${CoverLetterUsageService.proDailyLimit} يوميًا.');
       } else {
         try {
           text = await _ai.generate(input);
@@ -188,10 +204,10 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
     // Consume one AI letter only after the AI really succeeded.
     if (aiUsed && uid != null && uid.isNotEmpty) {
       try {
-        left = await _usage.consume(uid);
+        left = await _usage.consume(uid, isPro: isPro);
       } catch (e) {
         debugPrint('[CoverLetterUsage] consume failed: $e');
-        left = ((left ?? 1) - 1).clamp(0, CoverLetterUsageService.dailyLimit);
+        left = ((left ?? 1) - 1).clamp(0, limit);
       }
     }
 
@@ -262,6 +278,18 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
     final hasResult = _result.text.isNotEmpty;
+
+    // Watch the plan: when it changes (e.g. the user just subscribed, or
+    // RevenueCat finished loading), reload the remaining count so the
+    // "X of N" line shows the right limit.
+    final isPro = context.watch<SubscriptionProvider>().isPro;
+    if (isPro != _isPro) {
+      _isPro = isPro;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadRemaining();
+      });
+    }
+    final limit = CoverLetterUsageService.limitFor(isPro: isPro);
 
     return Scaffold(
       appBar: AppBar(title: Text(_t('Cover Letter', 'خطاب التقديم'))),
@@ -356,8 +384,8 @@ class _CoverLetterScreenState extends State<CoverLetterScreen> {
                       padding: const EdgeInsets.only(bottom: AppSpacing.md),
                       child: Text(
                         _t(
-                          'AI letters left today: $_remaining of ${CoverLetterUsageService.dailyLimit}',
-                          'خطابات الـ AI المتبقية النهارده: $_remaining من ${CoverLetterUsageService.dailyLimit}',
+                          'AI letters left today: $_remaining of $limit',
+                          'خطابات الـ AI المتبقية النهارده: $_remaining من $limit',
                         ),
                         style: AppTextStyles.bodySmall(textColor),
                       ),

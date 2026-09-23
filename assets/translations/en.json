@@ -440,5 +440,8 @@
   "practice_rating_weak": "Weak",
   "practice_save_failed": "We couldn't save this session to your history.",
   "practice_practice_again": "Practice again",
-  "practice_done": "Done"
+  "practice_done": "Done",
+  "paywall_feature_cover_letters": "{pro} AI cover letters per day (free plan: {free})",
+  "paywall_feature_practice": "Practice interviews with an AI interviewer and detailed feedback",
+  "paywall_feature_no_ads": "No ads"
 }
