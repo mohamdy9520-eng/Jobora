@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/router/app_router.dart';
@@ -47,8 +48,44 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // دالة تسجيل الدخول باستخدام جوجل
+  Future<void> _signInWithGoogle() async {
+    if (_isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. بدء عملية اختيار حساب جوجل
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // 2. الحصول على تفاصيل المصادقة
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 3. إنشاء بيانات الاعتماد الخاصة بـ Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. تسجيل الدخول في فايربيس
+      await FirebaseAuth.instance.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = _mapAuthError(e));
+    } catch (e) {
+      setState(() => _errorMessage = context.tr('error_generic'));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   // Maps common FirebaseAuth error codes to localized messages.
-  // Falls back to the generic error string for anything unexpected.
   String _mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
@@ -94,8 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
-    // Tablet/desktop get more breathing room around the centered form;
-    // phone keeps the tight original padding.
     final horizontalPadding = context.isMobile ? AppSpacing.xl : AppSpacing.xxxl;
 
     return Scaffold(
@@ -127,7 +162,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: context.tr('auth_password'),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          // تصحيح منطق الأيقونة: عين مشطوبة عندما يكون الباسورد مخفياً، وعين مفتوحة عندما يكون ظاهراً
+                          icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
@@ -165,11 +201,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Expanded(child: Divider()),
                     ]),
                     const SizedBox(height: AppSpacing.lg),
-                    // NOTE: Google sign-in needs the `google_sign_in` package and its
-                    // own setup (SHA-1 fingerprint on Android, URL scheme on iOS).
-                    // Left as a TODO since it's a separate flow from email/password.
                     OutlinedButton.icon(
-                      onPressed: null,
+                      onPressed: _isSubmitting ? null : _signInWithGoogle, // تفعيل زر جوجل
                       icon: const Icon(Icons.g_mobiledata, size: 28),
                       label: Text(context.tr('auth_continue_google')),
                     ),

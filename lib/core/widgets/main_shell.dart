@@ -1,7 +1,11 @@
+import 'dart:io' show Platform, exit;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../localization/app_localizations.dart';
 import '../router/app_router.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/responsive.dart';
 
@@ -116,47 +120,100 @@ class MainShell extends StatelessWidget {
     );
   }
 
+  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.tr('home_exit_title')),
+        content: Text(context.tr('home_exit_message')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.tr('home_exit_cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              context.tr('home_exit_confirm'),
+              style: const TextStyle(color: AppColors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _handlePopInvoked(BuildContext context, bool didPop) async {
+    if (didPop) return;
+
+    if (navigationShell.currentIndex != 0) {
+      navigationShell.goBranch(0);
+      return;
+    }
+
+    final shouldExit = await _showExitConfirmationDialog(context);
+    if (shouldExit) {
+      debugPrint('🚪 Exit confirmed — closing app now');
+      if (Platform.isAndroid) {
+        SystemNavigator.pop();
+      } else {
+        exit(0);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final useRail = context.isTablet || context.isDesktop;
     final items = _items(context);
 
     if (!useRail) {
-      return Scaffold(
-        body: navigationShell,
-        floatingActionButton: _buildFab(context),
-        bottomNavigationBar: _buildBottomNavBar(context, items),
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) =>
+            _handlePopInvoked(context, didPop),
+        child: Scaffold(
+          body: navigationShell,
+          floatingActionButton: _buildFab(context),
+          bottomNavigationBar: _buildBottomNavBar(context, items),
+        ),
       );
     }
 
     final extended = context.isDesktop;
 
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: navigationShell.currentIndex,
-            onDestinationSelected: _onDestinationSelected,
-            extended: extended,
-            labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-            leading: _showFab(navigationShell.currentIndex)
-                ? Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: _buildFab(context, extended: extended),
-            )
-                : null,
-            destinations: [
-              for (final item in items)
-                NavigationRailDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: Text(item.label),
-                ),
-            ],
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: navigationShell),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) =>
+          _handlePopInvoked(context, didPop),
+      child: Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: navigationShell.currentIndex,
+              onDestinationSelected: _onDestinationSelected,
+              extended: extended,
+              labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+              leading: _showFab(navigationShell.currentIndex)
+                  ? Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: _buildFab(context, extended: extended),
+              )
+                  : null,
+              destinations: [
+                for (final item in items)
+                  NavigationRailDestination(
+                    icon: Icon(item.icon),
+                    selectedIcon: Icon(item.selectedIcon),
+                    label: Text(item.label),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: navigationShell),
+          ],
+        ),
       ),
     );
   }

@@ -1,106 +1,108 @@
-import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:flutter/material.dart';
-import '../models/subscription_status.dart';
-import '../repostory/subscription_repository.dart';
 
-class SubscriptionProvider extends ChangeNotifier {
-  final _repository = SubscriptionRepository();
-  StreamSubscription<CustomerInfo>? _sub;
+class SubscriptionProvider with ChangeNotifier {
   String? _uid;
-
-  SubscriptionStatus _status = SubscriptionStatus.free();
   Offerings? _offerings;
-  bool _isLoading = true;
-  bool _isPurchasing = false;
+  CustomerInfo? _customerInfo;
+  bool _isLoading = false;
   String? _error;
 
-  SubscriptionStatus get status => _status;
-  Offering? get currentOffering => _offerings?.current;
+  Offerings? get offerings => _offerings;
+  CustomerInfo? get customerInfo => _customerInfo;
   bool get isLoading => _isLoading;
-  bool get isPurchasing => _isPurchasing;
   String? get error => _error;
 
-  /// Keeps RevenueCat's App User ID in sync with the Firebase uid, and
-  /// (re)loads offerings/status for the signed-in user. Same pattern as
-  /// the other providers' updateAuth(auth.uid) wired in main.dart.
-  void updateAuth(String? uid) {
-    if (_uid == uid) return;
+  // غيّر "Jobora Pro" لاسم الـ Entitlement بالظبط زي ما هو في RevenueCat Dashboard
+  bool get isPro =>
+      _customerInfo?.entitlements.active.containsKey('jobora_pro') ?? false;
+
+  /// بينادى من الـ ChangeNotifierProxyProvider في main.dart كل ما حالة
+  /// AuthController تتغير، عشان يربط/يفك ربط RevenueCat App User ID
+  /// مع الـ Firebase UID الحالي.
+  Future<void> updateAuth(String? uid) async {
+    if (_uid == uid) return; // منع استدعاءات مكررة لنفس الـ uid
     _uid = uid;
-    if (uid != null) {
-      Purchases.logIn(uid).then((_) => _refresh());
-    } else {
-      Purchases.logOut();
-      _status = SubscriptionStatus.free();
-      _offerings = null;
+
+    try {
+      if (uid != null) {
+        final result = await Purchases.logIn(uid);
+        _customerInfo = result.customerInfo;
+      } else {
+        final info = await Purchases.logOut();
+        _customerInfo = info;
+      }
+    } on PlatformException catch (e) {
+      _error = e.message;
+    } finally {
       notifyListeners();
     }
   }
 
-  SubscriptionProvider() {
-    _sub = _repository.customerInfoUpdates().listen((info) {
-      _status = SubscriptionStatus.fromCustomerInfo(info);
-      notifyListeners();
-    });
-  }
-
-  Future<void> _refresh() async {
+  Future<void> fetchOfferings() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      final info = await _repository.fetchCustomerInfo();
-      _status = SubscriptionStatus.fromCustomerInfo(info);
-      _offerings = await _repository.fetchOfferings();
-    } catch (e) {
-      _error = e.toString();
+      _offerings = await Purchases.getOfferings();
+    } on PlatformException catch (e) {
+      _error = e.message;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> purchase(Package package) async {
-    _isPurchasing = true;
+  Future<bool> purchasePackage(Package package) async {
+    _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      final info = await _repository.purchasePackage(package);
-      _status = SubscriptionStatus.fromCustomerInfo(info);
-      return true;
+      final result = await Purchases.purchasePackage(package);
+      _customerInfo = result.customerInfo;
+
+      // 🔍 تشخيص مؤقت
+      debugPrint('🔍 Active entitlements: ${_customerInfo?.entitlements.active.keys.toList()}');
+      debugPrint('🔍 All entitlements: ${_customerInfo?.entitlements.all.keys.toList()}');
+
+      _isLoading = false;
+      notifyListeners();
+      return isPro;
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code != PurchasesErrorCode.purchaseCancelledError) {
         _error = e.message;
       }
+      _isLoading = false;
+      notifyListeners();
       return false;
-    } finally {
-      _isPurchasing = false;
+    }
+  }
+
+  Future<void> refreshCustomerInfo() async {
+    try {
+      _customerInfo = await Purchases.getCustomerInfo();
+      notifyListeners();
+    } on PlatformException catch (e) {
+      _error = e.message;
       notifyListeners();
     }
   }
 
-  Future<bool> restore() async {
+  Future<bool> restorePurchases() async {
     _isLoading = true;
     notifyListeners();
     try {
-      final info = await _repository.restorePurchases();
-      _status = SubscriptionStatus.fromCustomerInfo(info);
-      _error = null;
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      return false;
-    } finally {
+      _customerInfo = await Purchases.restorePurchases();
       _isLoading = false;
       notifyListeners();
+      return isPro;
+    } on PlatformException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
   }
 }

@@ -5,9 +5,11 @@ import '../../features/applications/edit/edit_application_screen.dart';
 import '../../features/cover_letter/screen/cover_letter_screen.dart';
 import '../../features/interviews/add_interview_screen.dart';
 import '../../features/interviews/edit_interview_screen.dart';
+import '../../features/legal/legal_webview_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/subscriptions/screens/subscriptions_screen.dart';
 import '../../features/cv/screens/cv_upload_screen.dart';
+import '../../features/profile/edit_profile_screen.dart';
 import '../services/app_settings_controller.dart';
 import '../services/auth_controller.dart';
 import '../widgets/main_shell.dart';
@@ -24,7 +26,6 @@ import '../../features/interviews/interviews_screen.dart';
 import '../../features/statistics/statistics_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/legal/privacy/privacy_screen.dart';
-import '../../features/legal/terms/terms_screen.dart';
 
 
 class AppRoutes {
@@ -57,6 +58,7 @@ class AppRoutes {
   static const subscriptions = '/settings/subscriptions';
   static const terms = '/settings/terms';
   static const coverLetter = '/cover-letter';
+  static const editProfile = '/settings/edit-profile';
 
 }
 
@@ -76,6 +78,11 @@ GoRouter buildAppRouter({
       final isOnboardingFlow = loc == AppRoutes.language ||
           loc == AppRoutes.currency ||
           loc == AppRoutes.onboarding;
+      // Terms/Privacy must be readable from the Signup screen before the
+      // user is authenticated (e.g. tapping "Terms & Conditions" while
+      // filling the signup form). Without this, the !isAuthenticated
+      // check below bounces straight back to /login mid-signup.
+      final isPubliclyAccessible = loc == AppRoutes.terms || loc == AppRoutes.privacy;
 
       if (loc == AppRoutes.splash) return null;
 
@@ -83,7 +90,10 @@ GoRouter buildAppRouter({
         return AppRoutes.language;
       }
 
-      if (settings.onboardingCompleted && !auth.isAuthenticated && !isAuthRoute) {
+      if (settings.onboardingCompleted &&
+          !auth.isAuthenticated &&
+          !isAuthRoute &&
+          !isPubliclyAccessible) {
         return AppRoutes.login;
       }
 
@@ -138,9 +148,16 @@ GoRouter buildAppRouter({
         builder: (context, state) => const CoverLetterScreen(),
       ),
       GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
-      GoRoute(path: AppRoutes.terms, builder: (c, s) => const TermsScreen()),
       GoRoute(path: AppRoutes.notifications, builder: (c, s) => const NotificationsScreen()),
-      GoRoute(path: AppRoutes.subscriptions, builder: (c, s) => const SubscriptionsScreen()),
+      GoRoute(path: AppRoutes.subscriptions, builder: (c, s) => const PaywallScreen()),
+      GoRoute(
+        path: AppRoutes.terms,
+        builder: (c, s) => const LegalWebViewScreen(
+          baseUrl: 'https://mohamdy9520-eng.github.io/jobora-legal/terms.html',
+          titleKey: 'terms_title',
+        ),
+      ),
+      GoRoute(path: AppRoutes.editProfile, builder: (c, s) => const EditProfileScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),

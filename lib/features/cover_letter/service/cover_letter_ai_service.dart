@@ -15,7 +15,7 @@ class CoverLetterAiService {
 
   final Dio _dio;
 
-  // Run with: flutter run --dart-define-from-file=env.json
+  // Run with: flutter run --dart-define-from-file=env.
   static const _apiKey = String.fromEnvironment('OPENROUTER_API_KEY');
 
   // Free model ids change over time (llama-3.3-70b and deepseek-v4-flash were

@@ -1,5 +1,5 @@
 {
-  "app_name": "جوب ميت",
+  "app_name": "جوبورا",
   "tagline": "مساعدك الشخصي في البحث عن وظيفة",
 
   "onboarding_choose_language": "اختر لغتك",
@@ -54,7 +54,7 @@
   "home_create_cover_letter": "إنشاء خطاب تقديم",
   "home_practice_interview": "تدرب على مقابلة",
   "home_empty_title": "ابدأ رحلة بحثك عن عمل",
-  "home_empty_subtitle": "أضف أول طلب توظيف ودع جوب ميت يساعدك في تتبع رحلتك.",
+  "home_empty_subtitle": "أضف أول طلب توظيف ودع جوبورا يساعدك في تتبع رحلتك.",
 
   "applications_title": "الطلبات",
   "applications_search_hint": "ابحث عن شركة أو وظيفة",
@@ -153,7 +153,7 @@
   "profile_account": "الحساب",
   "profile_logout": "تسجيل الخروج",
 
-  "premium_title": "جوب ميت بريميوم",
+  "premium_title": "جوبورا بريميوم",
   "premium_monthly": "شهري",
   "premium_yearly": "سنوي",
   "premium_upgrade": "الترقية إلى بريميوم",
@@ -171,11 +171,23 @@
   "error_invalid_email": "من فضلك أدخل بريدًا إلكترونيًا صحيحًا.",
   "error_weak_password": "يجب أن تكون كلمة المرور 6 أحرف على الأقل.",
 
-  "profile_default_name": "مستخدم جوب ميت",
+  "profile_default_name": "مستخدم جوبورا",
   "theme_dark": "داكن",
   "theme_light": "فاتح",
   "theme_system": "حسب النظام",
   "home_default_name": "بك",
+
+  "edit_profile_title": "تعديل الملف الشخصي",
+  "edit_profile_tab_name": "الاسم",
+  "edit_profile_tab_password": "كلمة المرور",
+  "edit_profile_save": "حفظ",
+  "edit_profile_name_success": "تم تحديث الاسم بنجاح",
+  "edit_profile_password_success": "تم تغيير كلمة المرور بنجاح",
+  "edit_profile_current_password": "كلمة المرور الحالية",
+  "edit_profile_new_password": "كلمة المرور الجديدة",
+  "edit_profile_confirm_password": "تأكيد كلمة المرور الجديدة",
+  "edit_profile_no_password_provider": "سجلت دخولك بحساب جوجل، مفيش كلمة مرور لتغييرها",
+  "error_requires_recent_login": "لدواعي الأمان، سجّل خروج ودخول تاني قبل تغيير كلمة المرور",
 
   "error_save_failed": "تعذّر حفظ الطلب. حاول مرة أخرى.",
   "application_details_not_found_title": "الطلب غير موجود",
@@ -304,6 +316,61 @@
   "cv_empty_hint": "لسه ماعندكش CVs مرفوعة. ارفع واحد من شاشة الـ CVs.",
   "cv_unavailable": "الـ CV ده اتمسح أو مش متاح",
   "section_cv": "السيرة الذاتية",
-  "error_open_cv": "قدرناش نفتح الملف"
-}
+  "error_open_cv": "قدرناش نفتح الملف",
 
+
+  "paywall_title": "Jobora Pro",
+  "paywall_already_subscribed": "أنت مشترك بالفعل",
+  "paywall_back_to_home": "العودة للرئيسية",
+  "paywall_no_packages_available": "لا توجد باقات متاحة حالياً",
+  "paywall_subscribe_now": "اشترك الآن",
+  "paywall_restore_purchases": "استعادة المشتريات",
+  "paywall_monthly_plan_name": "جوبورا برو - شهري",
+  "paywall_monthly_plan_desc": "وصول كامل لكل المميزات المتقدمة",
+
+  "paywall_features_title": "هتحصل على:",
+  "paywall_feature_1": "تقديم غير محدود على الوظائف",
+  "paywall_feature_2": "إنشاء سيرة ذاتية بالذكاء الاصطناعي",
+  "paywall_feature_3": "أولوية في جدولة المقابلات",
+  "paywall_feature_4": "إحصائيات وتحليلات متقدمة",
+
+  "paywall_hero_subtitle": "وصول كامل لكل مميزات المشتركين",
+  "paywall_renews_monthly": "اشتراكك يتجدد تلقائيًا بمبلغ {price}/شهريًا حتى يتم الإلغاء",
+  "paywall_renews_yearly": "اشتراكك يتجدد تلقائيًا بمبلغ {price}/سنويًا حتى يتم الإلغاء",
+  "paywall_restore_no_purchases": "لم يتم العثور على مشتريات سابقة لاستعادتها",
+  "paywall_terms": "الشروط",
+  "paywall_privacy": "الخصوصية",
+
+  "auth_agree_prefix": "أنا أوافق على ",
+  "auth_terms_conditions": "الشروط والأحكام",
+
+  "home_insight_applications_this_week": "قدّمت على {count} وظايف الأسبوع ده",
+  "home_insight_stale_applications": "{count} طلبات من أكتر من أسبوعين من غير رد",
+  "home_insight_better_response_rate": "نسبة ردك على وظايف {type} أعلى",
+  "home_attention_stale_title": "{count} طلبات محتاجة متابعة",
+  "home_attention_stale_subtitle": "من غير رد من أكتر من أسبوعين — يمكن تبعت follow-up",
+  "home_cv_tip_upload_title": "ارفع الـCV بتاعك",
+  "home_cv_tip_upload_message": "أول ما ترفعه هنقدر نراجعه ونقترحلك تعديلات تزوّد فرصك في القبول.",
+  "home_cv_tip_update_title": "حدّث الـCV بتاعك",
+  "home_cv_tip_update_message": "آخر تحديث كان بقاله فترة — راجعه وضيف أي خبرة أو مشروع جديد.",
+  "home_cv_tip_cleanup_title": "شيل النسخ القديمة",
+  "home_cv_tip_cleanup_message": "عندك {count} نسخ من الـCV — سيب أحدث نسخة بس عشان متتلخبطش.",
+  "home_cv_tip_check_file_title": "تأكد إن الملف سليم",
+  "home_cv_tip_check_file_message": "حجم الملف صغير بشكل غير متوقع — افتحه وتأكد إن المحتوى ظاهر كامل.",
+  "home_cv_tip_all_good_title": "الـCV بتاعك مرفوع وحديث",
+  "home_cv_tip_all_good_message": "لسه مفيش تحليل تفصيلي للمحتوى — قريبًا هنضيفه.",
+  "weekday_monday": "الاتنين",
+  "weekday_tuesday": "التلات",
+  "weekday_wednesday": "الأربع",
+  "weekday_thursday": "الخميس",
+  "weekday_friday": "الجمعة",
+  "weekday_saturday": "السبت",
+  "weekday_sunday": "الأحد",
+  "time_am": "ص",
+  "time_pm": "م",
+  "home_exit_title": "تأكيد الخروج",
+  "home_exit_message": "هل أنت متأكد أنك تريد الخروج من التطبيق؟",
+  "home_exit_cancel": "إلغاء",
+  "home_exit_confirm": "تأكيد"
+
+}

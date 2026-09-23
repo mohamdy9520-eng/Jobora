@@ -1,13 +1,14 @@
 import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/services/app_settings_controller.dart';
@@ -25,16 +26,14 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // تحميل ملف البيئة env (بدون امتداد، اسمه الفعلي "env" على القرص)
+  await dotenv.load(fileName: "env");
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // TODO: replace with your real RevenueCat public SDK keys (from the
-  // RevenueCat dashboard → Project settings → API keys).
+  // إعداد RevenueCat لتطبيق Jobora باستخدام مفتاح الـ Test
   if (!kIsWeb) {
-    await Purchases.setLogLevel(LogLevel.warn);
-    final configuration = Platform.isIOS
-        ? PurchasesConfiguration('appl_XXXXXXXXXXXXXXXXXXXXXXXX')
-        : PurchasesConfiguration('goog_XXXXXXXXXXXXXXXXXXXXXXXX');
-    await Purchases.configure(configuration);
+    await _configureRevenueCat();
   }
 
   final settingsController = AppSettingsController();
@@ -47,6 +46,28 @@ Future<void> main() async {
     settingsController: settingsController,
     authController: authController,
   ));
+}
+
+Future<void> _configureRevenueCat() async {
+  final apiKey = dotenv.env['REVENUECAT_API_KEY'];
+
+  if (apiKey == null || apiKey.isEmpty) {
+    throw StateError('REVENUECAT_API_KEY missing');
+  }
+
+  // 🔍 مؤقت للتشخيص فقط - امسحه بعد ما تتأكد
+  debugPrint('RC Key length: ${apiKey.length}');
+  debugPrint('RC Key prefix: ${apiKey.substring(0, apiKey.length > 6 ? 6 : apiKey.length)}');
+  debugPrint('RC Key suffix: ${apiKey.substring(apiKey.length > 6 ? apiKey.length - 6 : 0)}');
+
+  if (kDebugMode) {
+    await Purchases.setLogLevel(LogLevel.debug);
+  } else {
+    await Purchases.setLogLevel(LogLevel.error);
+  }
+
+  final configuration = PurchasesConfiguration(apiKey);
+  await Purchases.configure(configuration);
 }
 
 class JobMateApp extends StatefulWidget {

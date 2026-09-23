@@ -30,9 +30,6 @@ class ProfileScreen extends StatelessWidget {
                   style: AppTextStyles.h3(Theme.of(sheetContext).colorScheme.onSurface),
                 ),
               ),
-              // Renders directly from AppSettingsController.supportedLanguages —
-              // adding a 3rd language later means adding one entry there,
-              // nothing to change in this UI.
               ...AppSettingsController.supportedLanguages.map((lang) {
                 return RadioListTile<String>(
                   value: lang.code,
@@ -136,6 +133,14 @@ class ProfileScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // بيودّي لشاشة تعديل الاسم/كلمة المرور. مهم بالذات
+                    // للحسابات القديمة اللي displayName بتاعها فاضي
+                    // فعليًا على السيرفر ومحتاجة اليوزر يظبطه بنفسه.
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: context.tr('edit_profile_title'),
+                      onPressed: () => context.push(AppRoutes.editProfile),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xxl),
@@ -177,11 +182,6 @@ class ProfileScreen extends StatelessWidget {
                   icon: Icons.privacy_tip_outlined,
                   title: context.tr('profile_privacy'),
                   onTap: () => context.push(AppRoutes.privacy),
-                ),
-                _SettingsTile(
-                  icon: Icons.description_outlined,
-                  title: context.tr('profile_terms'),
-                  onTap: () => context.push(AppRoutes.terms),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 OutlinedButton.icon(

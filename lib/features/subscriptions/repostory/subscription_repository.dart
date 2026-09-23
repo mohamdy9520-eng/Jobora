@@ -8,8 +8,9 @@ class SubscriptionRepository {
 
   // purchasePackage returns CustomerInfo directly in this SDK version —
   // no wrapper object with a `.customerInfo` getter.
-  Future<CustomerInfo> purchasePackage(Package package) {
-    return Purchases.purchasePackage(package);
+  Future<CustomerInfo> purchasePackage(Package package) async {
+    final PurchaseResult result = await Purchases.purchasePackage(package);
+    return result.customerInfo;
   }
 
   Future<CustomerInfo> restorePurchases() => Purchases.restorePurchases();

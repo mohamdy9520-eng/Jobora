@@ -25,6 +25,13 @@ class AuthController extends ChangeNotifier {
   String? get displayName => _user?.displayName;
   bool get isEmailVerified => _user?.emailVerified ?? false;
 
+  // True only if this account can sign in with email/password (as
+  // opposed to Google-only accounts). Used to hide the "change
+  // password" tab for Google-only users, since there's no password
+  // to change.
+  bool get hasPasswordProvider =>
+      _user?.providerData.any((p) => p.providerId == 'password') ?? false;
+
   // From the Firestore 'users' profile document — null until that
   // document exists (no signup/onboarding screen writes it yet).
   String? get username => _profile?.username;
@@ -48,6 +55,78 @@ class AuthController extends ChangeNotifier {
     if (_user == null) return;
     _profile = await _profileRepository.getProfile(_user!.uid);
     notifyListeners();
+  }
+
+  /// Creates the initial 'users' profile document right after signup
+  /// (email/password or Google), so username/jobTitle exist from the
+  /// first login instead of staying null forever because nothing ever
+  /// wrote the doc. Uses SetOptions(merge: true) under the hood
+  /// (see UserProfileRepository.saveProfile), so calling this again
+  /// later (e.g. from a profile-edit screen) won't wipe out fields it
+  /// doesn't pass.
+  Future<void> ensureProfile({String? username, String? jobTitle}) async {
+    if (_user == null) return;
+
+    // Don't overwrite an existing profile (e.g. a returning Google user
+    // who already set a username before) with a freshly-derived default.
+    if (_profile != null && (_profile!.username?.isNotEmpty ?? false)) {
+      return;
+    }
+
+    final resolvedUsername = username ?? _deriveUsernameFromEmail(_user!.email);
+
+    await _profileRepository.saveProfile(
+      UserProfileModel(
+        uid: _user!.uid,
+        username: resolvedUsername,
+        jobTitle: jobTitle,
+      ),
+    );
+    await refreshProfile();
+  }
+
+  /// "mohamed.ali@gmail.com" -> "mohamed.ali". Returns null if there's
+  /// no email to derive from (shouldn't happen for email/password or
+  /// Google sign-in, but stay safe).
+  String? _deriveUsernameFromEmail(String? email) {
+    if (email == null || !email.contains('@')) return null;
+    final prefix = email.split('@').first.trim();
+    return prefix.isEmpty ? null : prefix;
+  }
+
+  /// Updates the Firebase Auth displayName and refreshes the local
+  /// `_user` so `displayName` reflects the change immediately, without
+  /// needing a logout/login. Used by EditProfileScreen's "name" tab —
+  /// also fixes legacy accounts whose displayName was never set
+  /// correctly at signup.
+  Future<void> updateDisplayName(String name) async {
+    final user = _user;
+    if (user == null) return;
+    await user.updateDisplayName(name);
+    await user.reload();
+    _user = FirebaseAuth.instance.currentUser;
+    notifyListeners();
+  }
+
+  /// Changes the password for email/password accounts. Firebase requires
+  /// a recent sign-in for this, so we reauthenticate with the current
+  /// password first — otherwise this throws 'requires-recent-login'.
+  /// Only call this when [hasPasswordProvider] is true.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _user;
+    if (user == null || user.email == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPassword);
   }
 
   void finishInitializing() {

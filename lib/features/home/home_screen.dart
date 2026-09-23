@@ -55,13 +55,15 @@ class HomeScreen extends StatelessWidget {
 
     // HomeController's builders are pure — feed them the live lists from
     // their own providers instead of relying on HomeController to fetch
-    // application/interview/cv data itself.
-    final insights = home.buildInsights(applicationProvider.applications);
+    // application/interview/cv data itself. `tr: context.tr` is passed
+    // through so their (template-based) strings come out localized
+    // instead of hardcoded.
+    final insights = home.buildInsights(applicationProvider.applications, tr: context.tr);
     final attentionItems =
-    home.buildAttentionItems(applicationProvider.applications);
-    final cvTips = home.buildCvTips(cvProvider.cvs);
+    home.buildAttentionItems(applicationProvider.applications, tr: context.tr);
+    final cvTips = home.buildCvTips(cvProvider.cvs, tr: context.tr);
     final upcomingInterviews =
-    home.buildUpcomingInterviews(interviewProvider.interviews);
+    home.buildUpcomingInterviews(interviewProvider.interviews, tr: context.tr);
 
     // home.isLoading/hasError only cover whatever HomeController fetches
     // on its own — applications/interviews/cv have their own isLoading

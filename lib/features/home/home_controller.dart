@@ -5,6 +5,11 @@ import '../../core/models/application_model.dart';
 import '../../core/models/cv_model.dart';
 import '../../core/models/interview_model.dart';
 
+/// Signature matching `AppLocalizationsX.tr` — passed in from the screen
+/// so this controller stays free of BuildContext, while still producing
+/// localized strings instead of hardcoded Arabic.
+typedef Translator = String Function(String key, [Map<String, String>? args]);
+
 /// Plain counters shown on Home. Display-only — the cards aren't tappable.
 /// Starts at zero (not mock) until the real repositories exist.
 class HomeSummary {
@@ -105,7 +110,16 @@ class HomeController extends ChangeNotifier {
 
   /// Pure logic — plug in the real ApplicationModel list from
   /// ApplicationProvider.
-  List<InsightData> buildInsights(List<ApplicationModel> apps) {
+  ///
+  /// NOTE: these are template-based observations, not real NLP/AI
+  /// analysis — [tr] just localizes the current templates. Once this
+  /// grows into AI-generated insights, the generation itself needs to
+  /// happen in the user's locale (e.g. via a prompt), not through these
+  /// translation keys.
+  List<InsightData> buildInsights(
+      List<ApplicationModel> apps, {
+        required Translator tr,
+      }) {
     final insights = <InsightData>[];
     final now = DateTime.now();
 
@@ -117,7 +131,7 @@ class HomeController extends ChangeNotifier {
     if (thisWeek > 0) {
       insights.add(InsightData(
         icon: Icons.trending_up,
-        message: 'قدّمت على $thisWeek وظايف الأسبوع ده',
+        message: tr('home_insight_applications_this_week', {'count': thisWeek.toString()}),
       ));
     }
 
@@ -129,7 +143,7 @@ class HomeController extends ChangeNotifier {
     if (stale > 0) {
       insights.add(InsightData(
         icon: Icons.schedule_outlined,
-        message: '$stale طلبات من أكتر من أسبوعين من غير رد',
+        message: tr('home_insight_stale_applications', {'count': stale.toString()}),
       ));
     }
 
@@ -144,10 +158,12 @@ class HomeController extends ChangeNotifier {
       final remoteRate = rate(remote);
       final onsiteRate = rate(onsite);
       if ((remoteRate - onsiteRate).abs() > 0.15) {
-        final better = remoteRate > onsiteRate ? 'الـRemote' : 'الـOnsite';
+        final betterType = remoteRate > onsiteRate
+            ? tr('work_type_remote')
+            : tr('work_type_onsite');
         insights.add(InsightData(
           icon: Icons.insights_outlined,
-          message: 'نسبة ردك على وظايف $better أعلى',
+          message: tr('home_insight_better_response_rate', {'type': betterType}),
         ));
       }
     }
@@ -158,7 +174,10 @@ class HomeController extends ChangeNotifier {
   /// Pure logic — surfaces applications that need the user's attention:
   /// applications stuck without a status update for too long. Plug in
   /// the real list from ApplicationProvider.
-  List<AttentionItemData> buildAttentionItems(List<ApplicationModel> apps) {
+  List<AttentionItemData> buildAttentionItems(
+      List<ApplicationModel> apps, {
+        required Translator tr,
+      }) {
     final items = <AttentionItemData>[];
 
     final stale = apps
@@ -168,8 +187,8 @@ class HomeController extends ChangeNotifier {
     if (stale.isNotEmpty) {
       items.add(AttentionItemData(
         icon: Icons.hourglass_bottom_outlined,
-        title: '${stale.length} طلبات محتاجة متابعة',
-        subtitle: 'من غير رد من أكتر من أسبوعين — يمكن تبعت follow-up',
+        title: tr('home_attention_stale_title', {'count': stale.length.toString()}),
+        subtitle: tr('home_attention_stale_subtitle'),
       ));
     }
 
@@ -181,15 +200,17 @@ class HomeController extends ChangeNotifier {
   /// content checks (email present, skills section, quantified
   /// achievements, keyword match, etc.) can't run yet. Once a
   /// text-extraction step exists and CvModel exposes the parsed text,
-  /// this can grow into real content analysis.
-  List<CvTipData> buildCvTips(List<CvModel> cvs) {
+  /// this can grow into real content analysis (at which point tips stop
+  /// being template-based and [tr] alone won't be enough — dynamic,
+  /// per-CV content will need to be generated directly in the user's
+  /// locale).
+  List<CvTipData> buildCvTips(List<CvModel> cvs, {required Translator tr}) {
     if (cvs.isEmpty) {
-      return const [
+      return [
         CvTipData(
           icon: Icons.upload_file_outlined,
-          title: 'ارفع الـCV بتاعك',
-          message:
-          'أول ما ترفعه هنقدر نراجعه ونقترحلك تعديلات تزوّد فرصك في القبول.',
+          title: tr('home_cv_tip_upload_title'),
+          message: tr('home_cv_tip_upload_message'),
         ),
       ];
     }
@@ -202,10 +223,10 @@ class HomeController extends ChangeNotifier {
     // File freshness — a CV untouched for ~4 months is worth revisiting.
     final ageInDays = DateTime.now().difference(latest.uploadedAt).inDays;
     if (ageInDays > 120) {
-      tips.add(const CvTipData(
+      tips.add(CvTipData(
         icon: Icons.update,
-        title: 'حدّث الـCV بتاعك',
-        message: 'آخر تحديث كان بقاله فترة — راجعه وضيف أي خبرة أو مشروع جديد.',
+        title: tr('home_cv_tip_update_title'),
+        message: tr('home_cv_tip_update_message'),
       ));
     }
 
@@ -213,29 +234,27 @@ class HomeController extends ChangeNotifier {
     if (cvs.length > 1) {
       tips.add(CvTipData(
         icon: Icons.delete_sweep_outlined,
-        title: 'شيل النسخ القديمة',
-        message:
-        'عندك ${cvs.length} نسخ من الـCV — سيب أحدث نسخة بس عشان متتلخبطش.',
+        title: tr('home_cv_tip_cleanup_title'),
+        message: tr('home_cv_tip_cleanup_message', {'count': cvs.length.toString()}),
       ));
     }
 
     // Unusually small file — likely a scan/photo with little real content,
     // or a broken upload. Flag rather than silently trust it.
     if (latest.fileSizeBytes > 0 && latest.fileSizeBytes < 15 * 1024) {
-      tips.add(const CvTipData(
+      tips.add(CvTipData(
         icon: Icons.warning_amber_outlined,
-        title: 'تأكد إن الملف سليم',
-        message:
-        'حجم الملف صغير بشكل غير متوقع — افتحه وتأكد إن المحتوى ظاهر كامل.',
+        title: tr('home_cv_tip_check_file_title'),
+        message: tr('home_cv_tip_check_file_message'),
       ));
     }
 
     if (tips.isEmpty) {
-      return const [
+      return [
         CvTipData(
           icon: Icons.check_circle_outline,
-          title: 'الـCV بتاعك مرفوع وحديث',
-          message: 'لسه مفيش تحليل تفصيلي للمحتوى — قريبًا هنضيفه.',
+          title: tr('home_cv_tip_all_good_title'),
+          message: tr('home_cv_tip_all_good_message'),
         ),
       ];
     }
@@ -250,6 +269,7 @@ class HomeController extends ChangeNotifier {
       List<InterviewModel> interviews, {
         DateTime? now,
         int limit = 3,
+        required Translator tr,
       }) {
     final current = now ?? DateTime.now();
 
@@ -264,50 +284,51 @@ class HomeController extends ChangeNotifier {
       applicationId: i.applicationId,
       jobTitle: i.position,
       company: i.companyName,
-      timeLabel: _formatTimeLabel(i.dateTime, current),
+      timeLabel: _formatTimeLabel(i.dateTime, current, tr),
     ))
         .toList();
   }
 
-  /// "النهارده 3:00 م" / "بكرة 10:30 ص" / "الخميس 1:00 م" / "12/10 4:00 م"
-  String _formatTimeLabel(DateTime dt, DateTime now) {
+  /// "اليوم 3:00 م" / "غدًا 10:30 ص" / "الخميس 1:00 م" / "12/10 4:00 م"
+  /// (or the English equivalent, per [tr]).
+  String _formatTimeLabel(DateTime dt, DateTime now, Translator tr) {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(dt.year, dt.month, dt.day);
     final diffDays = day.difference(today).inDays;
 
     final String dayLabel;
     if (diffDays == 0) {
-      dayLabel = 'النهارده';
+      dayLabel = tr('date_today');
     } else if (diffDays == 1) {
-      dayLabel = 'بكرة';
+      dayLabel = tr('date_tomorrow');
     } else if (diffDays < 7) {
-      dayLabel = _weekdayName(dt.weekday);
+      dayLabel = _weekdayName(dt.weekday, tr);
     } else {
       dayLabel = '${dt.day}/${dt.month}';
     }
 
-    return '$dayLabel ${_formatClock(dt)}';
+    return '$dayLabel ${_formatClock(dt, tr)}';
   }
 
-  String _formatClock(DateTime dt) {
+  String _formatClock(DateTime dt, Translator tr) {
     final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final minute = dt.minute.toString().padLeft(2, '0');
-    final suffix = dt.hour < 12 ? 'ص' : 'م';
+    final suffix = dt.hour < 12 ? tr('time_am') : tr('time_pm');
     return '$hour12:$minute $suffix';
   }
 
-  String _weekdayName(int weekday) {
+  String _weekdayName(int weekday, Translator tr) {
     // DateTime.weekday: 1 = Monday ... 7 = Sunday
-    const names = [
-      'الاتنين',
-      'التلات',
-      'الأربع',
-      'الخميس',
-      'الجمعة',
-      'السبت',
-      'الأحد',
+    const keys = [
+      'weekday_monday',
+      'weekday_tuesday',
+      'weekday_wednesday',
+      'weekday_thursday',
+      'weekday_friday',
+      'weekday_saturday',
+      'weekday_sunday',
     ];
-    return names[weekday - 1];
+    return tr(keys[weekday - 1]);
   }
 
   @override

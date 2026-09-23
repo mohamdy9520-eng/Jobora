@@ -1,13 +1,13 @@
+// lib/features/legal/privacy/privacy_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/app_settings_controller.dart';
 import '../../../core/services/auth_controller.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/utils/responsive.dart';
+import '../legal_webview_screen.dart';
 import 'privacy_provider.dart';
+
+const _privacyBaseUrl = 'https://mohamdy9520-eng.github.io/jobora-legal/privacy.html';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
@@ -81,7 +81,7 @@ class _PrivacyView extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: Text(c.tr('cancel'))),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(c, true),
             child: Text(c.tr('privacy_delete_account_confirm')),
           ),
@@ -118,67 +118,35 @@ class _PrivacyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PrivacyProvider>();
-    final languageCode = context.watch<AppSettingsController>().locale.languageCode;
-    final textColor = Theme.of(context).colorScheme.onSurface;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(context.tr('privacy_title'))),
-      body: SafeArea(
-        child: Builder(builder: (context) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (provider.error != null && provider.content == null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(context.tr('legal_error_loading'), textAlign: TextAlign.center),
-                    const SizedBox(height: AppSpacing.md),
-                    ElevatedButton(
-                      onPressed: () => context.read<PrivacyProvider>().load(),
-                      child: Text(context.tr('retry')),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          return Center(
-            child: ResponsiveContentWidth(
-              maxWidth: 720,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                children: [
-                  if (provider.content != null)
-                    Text(provider.content!.localized(languageCode), style: AppTextStyles.bodyMedium(textColor)),
-                  const SizedBox(height: AppSpacing.xxl),
-                  Text(context.tr('privacy_your_data'), style: AppTextStyles.h3(textColor)),
-                  const SizedBox(height: AppSpacing.md),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.download_outlined, color: AppColors.primary),
-                    title: Text(context.tr('privacy_export_data')),
-                    trailing: provider.isSubmitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.chevron_right),
-                    onTap: provider.isSubmitting ? null : () => _handleExport(context),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.delete_outline, color: AppColors.danger),
-                    title: Text(context.tr('privacy_delete_account'), style: const TextStyle(color: AppColors.danger)),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _handleDelete(context),
-                  ),
-                ],
+    return LegalWebViewScreen(
+      baseUrl: _privacyBaseUrl,
+      titleKey: 'privacy_title',
+      actions: [
+        provider.isSubmitting
+            ? const Padding(
+          padding: EdgeInsets.all(16),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+        )
+            : PopupMenuButton<String>(
+          onSelected: (v) =>
+          v == 'export' ? _handleExport(context) : _handleDelete(context),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'export', child: Text(context.tr('privacy_export_data'))),
+            PopupMenuItem(
+              value: 'delete',
+              child: Text(
+                context.tr('privacy_delete_account'),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
-          );
-        }),
-      ),
+          ],
+        ),
+      ],
     );
   }
 }
