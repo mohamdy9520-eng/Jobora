@@ -11,6 +11,7 @@ import '../../core/widgets/app_card.dart';
 import '../applications/providers/application_provider.dart';
 import '../cv/providers/cv_provider.dart';
 import '../interviews/providers/interview_provider.dart';
+import '../subscriptions/providers/subscription_provider.dart';
 import 'home_controller.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -36,6 +37,10 @@ class HomeScreen extends StatelessWidget {
     final interviewProvider = context.watch<InterviewProvider>();
     final cvProvider = context.watch<CvProvider>();
 
+    // Practice Interview is a Premium feature: non-subscribers see a lock
+    // on the card and are sent to the paywall instead.
+    final isPro = context.watch<SubscriptionProvider>().isPro;
+
     // Real display name from the account the user signed up with —
     // falls back to a generic localized label only if they never set one.
     final displayName = (auth.displayName?.trim().isNotEmpty ?? false)
@@ -58,12 +63,15 @@ class HomeScreen extends StatelessWidget {
     // application/interview/cv data itself. `tr: context.tr` is passed
     // through so their (template-based) strings come out localized
     // instead of hardcoded.
-    final insights = home.buildInsights(applicationProvider.applications, tr: context.tr);
-    final attentionItems =
-    home.buildAttentionItems(applicationProvider.applications, tr: context.tr);
+    final insights =
+    home.buildInsights(applicationProvider.applications, tr: context.tr);
+    final attentionItems = home.buildAttentionItems(
+        applicationProvider.applications,
+        tr: context.tr);
     final cvTips = home.buildCvTips(cvProvider.cvs, tr: context.tr);
-    final upcomingInterviews =
-    home.buildUpcomingInterviews(interviewProvider.interviews, tr: context.tr);
+    final upcomingInterviews = home.buildUpcomingInterviews(
+        interviewProvider.interviews,
+        tr: context.tr);
 
     // home.isLoading/hasError only cover whatever HomeController fetches
     // on its own — applications/interviews/cv have their own isLoading
@@ -133,13 +141,26 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
-                // ── Practice interview ──────────────────────
+                // ── Practice interview (Premium) ─────────────
                 _PracticeInterviewCard(
                   title: context.tr('home_practice_title'),
                   subtitle: context.tr('home_practice_subtitle'),
-                  // TODO: wire once the interview practice
-                  // screen/route exists.
-                  onTap: () {},
+                  locked: !isPro,
+                  // Pro users go straight to the practice setup
+                  // screen. Everyone else lands on the paywall,
+                  // which continues to practice interview
+                  // automatically after a successful purchase
+                  // (via the ?next= query param).
+                  onTap: () => context.push(
+                    isPro
+                        ? AppRoutes.practiceInterview
+                        : Uri(
+                      path: AppRoutes.subscriptions,
+                      queryParameters: {
+                        'next': AppRoutes.practiceInterview,
+                      },
+                    ).toString(),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
@@ -189,8 +210,8 @@ class HomeScreen extends StatelessWidget {
                               child: Text(
                                 context.tr(
                                     'home_actions_need_attention', {
-                                  'count':
-                                  attentionItems.length.toString()
+                                  'count': attentionItems.length
+                                      .toString()
                                 }),
                                 style: AppTextStyles.bodyMedium(
                                     textColor),
@@ -263,15 +284,25 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.lg),
                 ],
 
-                // Quick actions (practice interview now has its
-                // own card).
+                // ── Quick actions ────────────────────────────
+                // Responsive grid that always fills the available
+                // width (the same 960px-max column as everything
+                // else on this screen):
+                //   • wide screens (tablet): 4 cards in one row
+                //   • phones: 2×2 grid, no horizontal scrolling
                 Text(context.tr('home_quick_actions'),
                     style: AppTextStyles.h3(textColor)),
                 const SizedBox(height: AppSpacing.md),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = AppSpacing.md;
+                    final columns =
+                    constraints.maxWidth >= 560 ? 4 : 2;
+                    final itemWidth = (constraints.maxWidth -
+                        spacing * (columns - 1)) /
+                        columns;
+
+                    final actions = [
                       _QuickAction(
                         icon: Icons.add_circle_outline,
                         label: context.tr('home_add_application'),
@@ -287,17 +318,31 @@ class HomeScreen extends StatelessWidget {
                       _QuickAction(
                         icon: Icons.upload_file_outlined,
                         label: context.tr('home_add_cv'),
-                        onTap: () => context.push(AppRoutes.cvUpload),
+                        onTap: () =>
+                            context.push(AppRoutes.cvUpload),
                       ),
                       _QuickAction(
                         icon: Icons.mail_outline,
-                        label: context.tr('home_create_cover_letter'),
-                        // ✅ Cover letter screen is now wired.
+                        label:
+                        context.tr('home_create_cover_letter'),
                         onTap: () =>
                             context.push(AppRoutes.coverLetter),
                       ),
-                    ],
-                  ),
+                    ];
+
+                    // To center smaller fixed-size cards instead of
+                    // stretching them, add
+                    //   alignment: WrapAlignment.center,
+                    // below and clamp itemWidth (e.g. min(itemWidth, 160)).
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (final action in actions)
+                          SizedBox(width: itemWidth, child: action),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
@@ -512,10 +557,15 @@ class _PracticeInterviewCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.locked = false,
   });
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+
+  /// True for users without an active Pro plan: shows a lock instead of
+  /// the chevron (tapping still works, it opens the paywall).
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -544,7 +594,7 @@ class _PracticeInterviewCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right),
+          Icon(locked ? Icons.lock_outline : Icons.chevron_right),
         ],
       ),
     );
@@ -591,6 +641,9 @@ class _AttentionItem extends StatelessWidget {
   }
 }
 
+/// A single quick-action tile. It has no fixed width: the parent decides
+/// (see the LayoutBuilder/Wrap in HomeScreen), so it stretches to fill its
+/// grid cell. Labels share one font size and wrap to two lines if needed.
 class _QuickAction extends StatelessWidget {
   const _QuickAction(
       {required this.icon, required this.label, required this.onTap});
@@ -601,34 +654,34 @@ class _QuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.md),
+    final radius = BorderRadius.circular(AppRadius.md);
+
+    return Material(
+      color: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: Theme.of(context).dividerColor),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: radius,
         child: Container(
-          width: 96,
-          height: 96,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border.all(color: Theme.of(context).dividerColor),
-            borderRadius: BorderRadius.circular(AppRadius.md),
+          height: 104,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.md,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: AppColors.primary),
+              Icon(icon, color: AppColors.primary, size: 28),
               const SizedBox(height: AppSpacing.sm),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  style: AppTextStyles.bodySmall(textColor),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                ),
+              Text(
+                label,
+                style: AppTextStyles.bodySmall(textColor),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

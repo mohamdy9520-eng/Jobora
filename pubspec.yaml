@@ -73,6 +73,7 @@ dependencies:
   easy_localization: ^3.0.8
   customer_io: ^4.5.0
   webview_flutter: ^4.9.0
+  syncfusion_flutter_pdf: ^34.2.9
 
 dev_dependencies:
   flutter_test:

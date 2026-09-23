@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/utils/responsive.dart';
 import '../providers/subscription_provider.dart';
 
@@ -34,6 +35,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
     });
   }
 
+  /// After a successful purchase/restore: go Home, and if the paywall was
+  /// opened from a Premium feature (via ?next=...), continue straight to it.
+  /// Only whitelisted destinations are honored, so a crafted link can't
+  /// send the user to an arbitrary route.
+  void _continueAfterSuccess() {
+    final next = GoRouterState.of(context).uri.queryParameters['next'];
+    final router = GoRouter.of(context);
+
+    router.go('/home');
+    if (next == AppRoutes.practiceInterview) {
+      router.push(AppRoutes.practiceInterview);
+    }
+  }
+
   Future<void> _handlePurchase(Package package) async {
     setState(() => _isPurchasing = true);
     final provider = context.read<SubscriptionProvider>();
@@ -42,7 +57,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     setState(() => _isPurchasing = false);
 
     if (success) {
-      context.go('/home');
+      _continueAfterSuccess();
     } else if (provider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(provider.error!)),
@@ -58,7 +73,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     setState(() => _isRestoring = false);
 
     if (restored) {
-      context.go('/home');
+      _continueAfterSuccess();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

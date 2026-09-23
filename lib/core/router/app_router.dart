@@ -7,7 +7,11 @@ import '../../features/interviews/add_interview_screen.dart';
 import '../../features/interviews/edit_interview_screen.dart';
 import '../../features/legal/legal_webview_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
-import '../../features/subscriptions/screens/subscriptions_screen.dart';
+import '../../features/practice_interview/models/practice_models.dart';
+import '../../features/practice_interview/screens/practice_chat_screen.dart';
+import '../../features/practice_interview/screens/practice_result_screen.dart';
+import '../../features/practice_interview/screens/practice_setup_screen.dart';
+import '../../features/subscriptions/screens/paywall_screen.dart';
 import '../../features/cv/screens/cv_upload_screen.dart';
 import '../../features/profile/edit_profile_screen.dart';
 import '../services/app_settings_controller.dart';
@@ -59,6 +63,13 @@ class AppRoutes {
   static const terms = '/settings/terms';
   static const coverLetter = '/cover-letter';
   static const editProfile = '/settings/edit-profile';
+
+  // Practice interview (Premium). Chat and result receive their data
+  // through `extra` (PracticeSetup / PracticeSession), so they redirect
+  // back to the setup screen when opened without it.
+  static const practiceInterview = '/practice-interview';
+  static const practiceChat = '/practice-interview/chat';
+  static const practiceResult = '/practice-interview/result';
 
 }
 
@@ -146,6 +157,23 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.coverLetter,
         builder: (context, state) => const CoverLetterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.practiceInterview,
+        builder: (c, s) => const PracticeSetupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.practiceChat,
+        redirect: (c, s) =>
+        s.extra is PracticeSetup ? null : AppRoutes.practiceInterview,
+        builder: (c, s) => PracticeChatScreen(setup: s.extra! as PracticeSetup),
+      ),
+      GoRoute(
+        path: AppRoutes.practiceResult,
+        redirect: (c, s) =>
+        s.extra is PracticeSession ? null : AppRoutes.practiceInterview,
+        builder: (c, s) =>
+            PracticeResultScreen(session: s.extra! as PracticeSession),
       ),
       GoRoute(path: AppRoutes.privacy, builder: (c, s) => const PrivacyScreen()),
       GoRoute(path: AppRoutes.notifications, builder: (c, s) => const NotificationsScreen()),
