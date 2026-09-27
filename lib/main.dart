@@ -16,6 +16,7 @@ import 'core/services/auth_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'features/applications/providers/application_provider.dart';
 import 'features/cv/providers/cv_provider.dart';
+import 'features/cv_builder/providers/cv_builder_provider.dart';
 import 'features/home/home_controller.dart';
 import 'features/interviews/providers/interview_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
@@ -123,6 +124,10 @@ class _JobMateAppState extends State<JobMateApp> {
         ),
         ChangeNotifierProxyProvider<AuthController, CvProvider>(
           create: (_) => CvProvider(),
+          update: (_, auth, provider) => provider!..updateAuth(auth.uid),
+        ),
+        ChangeNotifierProxyProvider<AuthController, CvBuilderProvider>(
+          create: (_) => CvBuilderProvider(),
           update: (_, auth, provider) => provider!..updateAuth(auth.uid),
         ),
         ChangeNotifierProxyProvider<ApplicationProvider, StatisticsController>(

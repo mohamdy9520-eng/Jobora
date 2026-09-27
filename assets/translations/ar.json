@@ -441,6 +441,9 @@
   "practice_practice_again": "تدرب تاني",
   "practice_done": "تم",
   "paywall_feature_cover_letters": "{pro} خطابات تقديم يوميًا بالذكاء الاصطناعي (بدل {free} في الخطة المجانية)",
-  "paywall_feature_practice": "تدريب على المقابلات مع محاور بالذكاء الاصطناعي وتقييم تفصيلي لإجاباتك",
-  "paywall_feature_no_ads": "تجربة بدون إعلانات"
+  "paywall_feature_no_ads": "تجربة بدون إعلانات",
+  "practice_sessions_left": "مقابلات التدريب المتبقية النهارده: {left} من {limit}",
+  "practice_error_daily_limit": "خلّصت مقابلات التدريب بتاعة النهارده. ارجع بكرة.",
+  "paywall_feature_practice": "{count} مقابلات تدريب يوميًا مع محاور بالذكاء الاصطناعي وتقييم تفصيلي",
+  "home_build_cv": "إنشاء سيرة ذاتية"
 }

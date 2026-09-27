@@ -6,17 +6,20 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_card.dart';
 import '../models/practice_models.dart';
 
+// Score bands follow the scale the AI coach is given in its prompt
+// (90+ exceptional, 75-89 strong, 60-74 decent but needs work, below 60 weak),
+// so the label the user sees matches what the feedback text says.
 Color practiceScoreColor(int score) {
-  if (score >= 85) return AppColors.success;
-  if (score >= 70) return AppColors.primary;
-  if (score >= 50) return AppColors.warning;
+  if (score >= 90) return AppColors.success;
+  if (score >= 75) return AppColors.primary;
+  if (score >= 60) return AppColors.warning;
   return AppColors.danger;
 }
 
 String practiceScoreLabelKey(int score) {
-  if (score >= 85) return 'practice_score_excellent';
-  if (score >= 70) return 'practice_score_good';
-  if (score >= 50) return 'practice_score_fair';
+  if (score >= 90) return 'practice_score_excellent';
+  if (score >= 75) return 'practice_score_good';
+  if (score >= 60) return 'practice_score_fair';
   return 'practice_score_poor';
 }
 
@@ -33,6 +36,9 @@ Color _ratingColor(AnswerRating rating) {
 
 /// Full feedback report. Scrolls by itself; parents just give it a bounded
 /// height (and usually cap its width with ResponsiveContentWidth).
+///
+/// The whole report is selectable, so the user can copy a "stronger answer"
+/// or a tip with a long-press.
 class PracticeResultView extends StatelessWidget {
   const PracticeResultView({
     super.key,
@@ -91,52 +97,54 @@ class PracticeResultView extends StatelessWidget {
       dir: dir,
     );
 
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      children: [
-        _ScoreCard(session: session, dir: dir),
-        const SizedBox(height: AppSpacing.lg),
-        if (saveFailed) ...[
-          Text(
-            context.tr('practice_save_failed'),
-            style: AppTextStyles.bodySmall(AppColors.warning),
-          ),
+    return SelectionArea(
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        children: [
+          _ScoreCard(session: session, dir: dir),
           const SizedBox(height: AppSpacing.lg),
-        ],
-        ..._pair(strengths, weaknesses),
-        if (pairs.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xl),
-          Text(context.tr('practice_result_review'),
-              style: AppTextStyles.h3(textColor)),
+          if (saveFailed) ...[
+            Text(
+              context.tr('practice_save_failed'),
+              style: AppTextStyles.bodySmall(AppColors.warning),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          ..._pair(strengths, weaknesses),
+          if (pairs.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xl),
+            Text(context.tr('practice_result_review'),
+                style: AppTextStyles.h3(textColor)),
+            const SizedBox(height: AppSpacing.md),
+            for (var i = 0; i < pairs.length; i++) ...[
+              _ReviewCard(
+                index: i + 1,
+                pair: pairs[i],
+                review: fb.reviewFor(i + 1),
+                dir: dir,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ],
           const SizedBox(height: AppSpacing.md),
-          for (var i = 0; i < pairs.length; i++) ...[
-            _ReviewCard(
-              index: i + 1,
-              pair: pairs[i],
-              review: fb.reviewFor(i + 1),
+          ..._pair(say, avoid),
+          if (fb.tips.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _ListCard(
+              title: context.tr('practice_result_tips'),
+              icon: Icons.lightbulb_outline,
+              color: AppColors.primary,
+              items: fb.tips,
               dir: dir,
             ),
-            const SizedBox(height: AppSpacing.md),
           ],
+          for (final a in actions) ...[
+            const SizedBox(height: AppSpacing.md),
+            a,
+          ],
+          const SizedBox(height: AppSpacing.xxxl),
         ],
-        const SizedBox(height: AppSpacing.md),
-        ..._pair(say, avoid),
-        if (fb.tips.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _ListCard(
-            title: context.tr('practice_result_tips'),
-            icon: Icons.lightbulb_outline,
-            color: AppColors.primary,
-            items: fb.tips,
-            dir: dir,
-          ),
-        ],
-        for (final a in actions) ...[
-          const SizedBox(height: AppSpacing.md),
-          a,
-        ],
-        const SizedBox(height: AppSpacing.xxxl),
-      ],
+      ),
     );
   }
 
@@ -159,13 +167,17 @@ class _TwoUp extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 640) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: first),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(child: second),
-            ],
+          // IntrinsicHeight + stretch: both cards get the same height, so the
+          // pair looks like one tidy row instead of two ragged boxes.
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: first),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(child: second),
+              ],
+            ),
           );
         }
         return Column(
@@ -190,7 +202,9 @@ class _ScoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final fb = session.feedback;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final color = practiceScoreColor(fb.score);
+    // The score comes from an AI reply: never trust it to be inside 0..100.
+    final score = fb.score.clamp(0, 100).toInt();
+    final color = practiceScoreColor(score);
 
     return AppCard(
       child: Row(
@@ -204,13 +218,13 @@ class _ScoreCard extends StatelessWidget {
               children: [
                 SizedBox.expand(
                   child: CircularProgressIndicator(
-                    value: fb.score / 100,
+                    value: score / 100,
                     strokeWidth: 8,
                     backgroundColor: color.withValues(alpha: 0.15),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
-                Text('${fb.score}', style: AppTextStyles.h2(textColor)),
+                Text('$score', style: AppTextStyles.h2(textColor)),
               ],
             ),
           ),
@@ -219,7 +233,7 @@ class _ScoreCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.tr(practiceScoreLabelKey(fb.score)),
+                Text(context.tr(practiceScoreLabelKey(score)),
                     style: AppTextStyles.h3(color)),
                 const SizedBox(height: 2),
                 Text(
@@ -277,20 +291,26 @@ class _ListCard extends StatelessWidget {
           for (final item in items)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Icon(Icons.circle, size: 7, color: color),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Text(item,
-                        textDirection: dir,
-                        style: AppTextStyles.bodyMedium(textColor)),
-                  ),
-                ],
+              // The bullet and the text follow the language of the interview
+              // (an Arabic session inside an English UI gets a right-side
+              // bullet, not a bullet on the wrong edge).
+              child: Directionality(
+                textDirection: dir,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Icon(Icons.circle, size: 7, color: color),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(item,
+                          textDirection: dir,
+                          style: AppTextStyles.bodyMedium(textColor)),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -299,7 +319,7 @@ class _ListCard extends StatelessWidget {
   }
 }
 
-class _ReviewCard extends StatelessWidget {
+class _ReviewCard extends StatefulWidget {
   const _ReviewCard({
     required this.index,
     required this.pair,
@@ -313,10 +333,21 @@ class _ReviewCard extends StatelessWidget {
   final TextDirection dir;
 
   @override
+  State<_ReviewCard> createState() => _ReviewCardState();
+}
+
+class _ReviewCardState extends State<_ReviewCard> {
+  // Answers that need work start open; good ones start collapsed.
+  late final bool _startsOpen = widget.review != null &&
+      widget.review!.rating != AnswerRating.good;
+  late bool _expanded = _startsOpen;
+
+  @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
     final muted = textColor.withValues(alpha: 0.65);
-    final r = review;
+    final r = widget.review;
+    final dir = widget.dir;
     final ratingColor = r == null ? muted : _ratingColor(r.rating);
 
     return AppCard(
@@ -331,7 +362,8 @@ class _ReviewCard extends StatelessWidget {
           childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
           shape: const Border(),
           collapsedShape: const Border(),
-          initiallyExpanded: r != null && r.rating != AnswerRating.good,
+          initiallyExpanded: _startsOpen,
+          onExpansionChanged: (open) => setState(() => _expanded = open),
           expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +381,7 @@ class _ReviewCard extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     context.tr('practice_result_question_n',
-                        {'n': index.toString()}),
+                        {'n': widget.index.toString()}),
                     style: AppTextStyles.bodySmall(muted),
                   ),
                   if (r != null) ...[
@@ -362,11 +394,14 @@ class _ReviewCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
+              // Collapsed: a 3-line preview. Expanded: the full question
+              // (questions can be long, and they used to stay cut off).
               Text(
-                pair.question,
+                widget.pair.question,
                 textDirection: dir,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                maxLines: _expanded ? null : 3,
+                overflow:
+                _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 style: AppTextStyles.bodyMedium(textColor),
               ),
             ],
@@ -374,7 +409,7 @@ class _ReviewCard extends StatelessWidget {
           children: [
             _Labeled(
               label: context.tr('practice_result_your_answer'),
-              text: pair.answer,
+              text: widget.pair.answer,
               dir: dir,
               labelColor: muted,
             ),

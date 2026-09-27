@@ -21,6 +21,7 @@ import '../models/practice_models.dart';
 import '../repository/practice_session_repository.dart';
 import '../services/cv_text_extractor.dart';
 import '../services/practice_interview_ai_service.dart';
+import '../services/practice_usage_service.dart';
 import '../widgets/practice_result_view.dart';
 
 class _CvChoice {
@@ -40,6 +41,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
   final _ai = PracticeInterviewAiService();
   final _extractor = CvTextExtractor();
   final _repository = PracticeSessionRepository();
+  final _usage = PracticeUsageService();
 
   String? _uid;
   String? _applicationId;
@@ -49,6 +51,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
   bool _initialized = false;
   bool _starting = false;
   String? _errorKey;
+  int? _remaining; // practice sessions left today (null = unknown)
 
   List<PracticeSession> _sessions = const [];
   StreamSubscription<List<PracticeSession>>? _historySub;
@@ -71,6 +74,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
         onError: (Object e) => debugPrint('[PracticeSetup] history error: $e'),
       );
     }
+    _loadRemaining();
   }
 
   @override
@@ -78,6 +82,17 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     _historySub?.cancel();
     _notes.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRemaining() async {
+    final uid = _uid;
+    if (uid == null || uid.isEmpty) return;
+    try {
+      final left = await _usage.remaining(uid);
+      if (mounted) setState(() => _remaining = left);
+    } catch (e) {
+      debugPrint('[PracticeUsage] read failed: $e');
+    }
   }
 
   // ───────────────────────── Selection helpers ─────────────────────────
@@ -232,9 +247,47 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       return;
     }
 
-    setState(() => _starting = false);
+    // Everything is valid. Only CHECK today's sessions here. The session is
+    // consumed later, by PracticeChatScreen, once the first question really
+    // reaches the user, so an AI/network failure never costs a session.
+    final uid = _uid;
+    if (uid == null || uid.isEmpty) {
+      setState(() {
+        _starting = false;
+        _errorKey = 'error_generic';
+      });
+      return;
+    }
 
-    context.push(
+    int left;
+    try {
+      left = await _usage.remaining(uid);
+    } catch (e) {
+      debugPrint('[PracticeUsage] read failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _starting = false;
+        _errorKey = 'error_generic';
+      });
+      return;
+    }
+    if (!mounted) return;
+
+    if (left <= 0) {
+      setState(() {
+        _starting = false;
+        _remaining = 0;
+        _errorKey = 'practice_error_daily_limit';
+      });
+      return;
+    }
+
+    setState(() {
+      _starting = false;
+      _remaining = left;
+    });
+
+    await context.push(
       AppRoutes.practiceChat,
       extra: PracticeSetup(
         applicationId: app.id,
@@ -246,6 +299,9 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
         notes: notes,
       ),
     );
+
+    // Back from the interview: refresh the "sessions left" line.
+    if (mounted) _loadRemaining();
   }
 
   Future<void> _confirmDelete(PracticeSession session) async {
@@ -462,8 +518,20 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
             style: AppTextStyles.bodyMedium(AppColors.danger)),
         const SizedBox(height: AppSpacing.md),
       ],
+      if (_remaining != null) ...[
+        Text(
+          context.tr('practice_sessions_left', {
+            'left': _remaining.toString(),
+            'limit': PracticeUsageService.dailyLimit.toString(),
+          }),
+          style: AppTextStyles.bodySmall(muted),
+        ),
+        const SizedBox(height: AppSpacing.md),
+      ],
       FilledButton.icon(
-        onPressed: (_starting || !_ai.isConfigured) ? null : _start,
+        onPressed: (_starting || !_ai.isConfigured || _remaining == 0)
+            ? null
+            : _start,
         icon: _starting
             ? const SizedBox(
           width: 18,
@@ -642,7 +710,15 @@ class _LockedView extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               FilledButton(
-                onPressed: () => context.push(AppRoutes.subscriptions),
+                // After a successful purchase the paywall continues straight
+                // to the practice setup screen (via ?next=), same as the
+                // card on the Home screen.
+                onPressed: () => context.push(
+                  Uri(
+                    path: AppRoutes.subscriptions,
+                    queryParameters: {'next': AppRoutes.practiceInterview},
+                  ).toString(),
+                ),
                 child: Text(context.tr('premium_upgrade')),
               ),
             ],

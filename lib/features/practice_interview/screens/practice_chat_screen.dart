@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
 import '../controller/practice_interview_controller.dart';
 import '../models/practice_models.dart';
+import '../services/practice_usage_service.dart';
 import '../widgets/practice_result_view.dart';
 
 class PracticeChatScreen extends StatefulWidget {
@@ -27,23 +29,59 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
   late final PracticeInterviewController _controller;
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  final _usage = PracticeUsageService();
+
+  String? _uid;
+
+  // A practice session is consumed only once the FIRST question has really
+  // reached the user. If the AI or the network fails before that, the user
+  // never loses a session (and no refund logic is needed).
+  bool _sessionCounted = false;
+  bool _counting = false;
 
   @override
   void initState() {
     super.initState();
-    final uid = context.read<AuthController>().uid;
-    _controller = PracticeInterviewController(setup: widget.setup, uid: uid);
-    _controller.addListener(_scrollToEnd);
+    _uid = context.read<AuthController>().uid;
+    _controller = PracticeInterviewController(setup: widget.setup, uid: _uid);
+    _controller.addListener(_onControllerChanged);
     _controller.start();
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_scrollToEnd);
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    _scrollToEnd();
+    _countSessionOnFirstQuestion();
+  }
+
+  Future<void> _countSessionOnFirstQuestion() async {
+    if (_sessionCounted || _counting) return;
+
+    final gotFirstQuestion = _controller.messages
+        .any((m) => m.role == PracticeRole.interviewer);
+    if (!gotFirstQuestion) return;
+
+    final uid = _uid;
+    if (uid == null || uid.isEmpty) return;
+
+    _counting = true;
+    try {
+      await _usage.tryConsume(uid);
+      _sessionCounted = true;
+    } catch (e) {
+      // Not marked as counted, so the next controller update retries.
+      debugPrint('[PracticeUsage] consume failed: $e');
+    } finally {
+      _counting = false;
+    }
   }
 
   void _scrollToEnd() {

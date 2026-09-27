@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
 import '../../features/cover_letter/screen/cover_letter_screen.dart';
+import '../../features/cv_builder/screens/cv_builder_screen.dart';
 import '../../features/interviews/add_interview_screen.dart';
 import '../../features/interviews/edit_interview_screen.dart';
 import '../../features/legal/legal_webview_screen.dart';
@@ -52,6 +53,11 @@ class AppRoutes {
   static const currencySettings = '/settings/currency';
   static const addInterview = '/add-interview';
   static const cvUpload = '/cv-upload';
+
+  // Build-from-scratch CV flow (separate from cvUpload above, which is
+  // for uploading an existing file). Lands on CvBuilderEntryScreen,
+  // which creates a fresh draft then pushes into CvBuilderFormScreen.
+  static const cvBuilder = '/cv-builder';
 
 
   // New settings screens — same pattern as currencySettings: top-level
@@ -153,6 +159,10 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.cvUpload,
         builder: (c, s) => const CvUploadScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.cvBuilder,
+        builder: (c, s) => const CvBuilderEntryScreen(),
       ),
       GoRoute(
         path: AppRoutes.coverLetter,

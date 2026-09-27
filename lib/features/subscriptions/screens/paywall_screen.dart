@@ -113,7 +113,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
       'pro': UsageLimits.proCoverLettersPerDay.toString(),
       'free': UsageLimits.freeCoverLettersPerDay.toString(),
     }),
-    context.tr('paywall_feature_practice'),
+    context.tr('paywall_feature_practice', {
+      'count': UsageLimits.proPracticeSessionsPerDay.toString(),
+    }),
     // ⚠️ سيب السطر ده لحد ما الإعلانات تتضاف للتطبيق فعلًا؛
     // وعد "بدون إعلانات" من غير إعلانات أصلًا مش مناسب.
     context.tr('paywall_feature_no_ads'),

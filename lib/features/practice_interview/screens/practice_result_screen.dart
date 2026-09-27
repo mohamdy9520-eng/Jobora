@@ -14,8 +14,26 @@ class PracticeResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted =
+    Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
+
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr('practice_result_title'))),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.tr('practice_result_title')),
+            // When this session happened, so old reports are easy to tell apart.
+            Text(
+              session.dateLabel,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: muted),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: ResponsiveContentWidth(

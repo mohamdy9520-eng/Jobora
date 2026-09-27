@@ -442,6 +442,10 @@
   "practice_practice_again": "Practice again",
   "practice_done": "Done",
   "paywall_feature_cover_letters": "{pro} AI cover letters per day (free plan: {free})",
-  "paywall_feature_practice": "Practice interviews with an AI interviewer and detailed feedback",
-  "paywall_feature_no_ads": "No ads"
+  "paywall_feature_practice": "{count} AI practice interviews per day with detailed feedback",
+  "paywall_feature_no_ads": "No ads",
+  "practice_sessions_left": "Practice interviews left today: {left} of {limit}",
+  "practice_error_daily_limit": "You've used all your practice interviews for today. Come back tomorrow.",
+  "home_build_cv": "Build CV"
+
 }

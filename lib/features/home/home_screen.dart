@@ -288,8 +288,12 @@ class HomeScreen extends StatelessWidget {
                 // Responsive grid that always fills the available
                 // width (the same 960px-max column as everything
                 // else on this screen):
-                //   • wide screens (tablet): 4 cards in one row
-                //   • phones: 2×2 grid, no horizontal scrolling
+                //   • wide screens (tablet): row(s) of up to 4 cards
+                //   • phones: 2 columns, no horizontal scrolling
+                // 5 actions total now — on phones that's a 2×2 grid
+                // plus one card alone on a third row; on tablets it's
+                // 4 + 1. LayoutBuilder/Wrap below handles both without
+                // any special-casing.
                 Text(context.tr('home_quick_actions'),
                     style: AppTextStyles.h3(textColor)),
                 const SizedBox(height: AppSpacing.md),
@@ -314,6 +318,16 @@ class HomeScreen extends StatelessWidget {
                         label: context.tr('home_add_interview'),
                         onTap: () =>
                             context.push(AppRoutes.addInterview),
+                      ),
+                      // ── New: build a CV from scratch (middle card) ──
+                      // Distinct from "home_add_cv" below, which
+                      // uploads an existing file. This one starts the
+                      // CvBuilderEntryScreen → CvBuilderFormScreen flow.
+                      _QuickAction(
+                        icon: Icons.auto_awesome_outlined,
+                        label: context.tr('home_build_cv'),
+                        onTap: () =>
+                            context.push(AppRoutes.cvBuilder),
                       ),
                       _QuickAction(
                         icon: Icons.upload_file_outlined,

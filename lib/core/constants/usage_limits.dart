@@ -10,4 +10,9 @@ class UsageLimits {
 
   /// AI cover letters per day with Jobora Pro.
   static const int proCoverLettersPerDay = 10;
+
+  /// Practice interview sessions per day with Jobora Pro
+  /// (Practice Interview is Pro-only, so there is no free value).
+  /// If you change this, also change the `<= 3` ceiling in firestore.rules.
+  static const int proPracticeSessionsPerDay = 3;
 }
