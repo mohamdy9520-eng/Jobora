@@ -145,7 +145,7 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 92,
+            height: 104,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: CvTemplateRegistry.all.length,

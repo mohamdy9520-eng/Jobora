@@ -1017,7 +1017,6 @@ class _ExtrasStep extends StatelessWidget {
         ),
       ),
     );
-    nameController.dispose();
     if (result != null) {
       onLanguagesChanged([...languages, result]);
     }
@@ -1059,8 +1058,6 @@ class _ExtrasStep extends StatelessWidget {
         ],
       ),
     );
-    nameController.dispose();
-    issuerController.dispose();
     if (result != null) {
       onCertificationsChanged([...certifications, result]);
     }
@@ -1103,8 +1100,6 @@ class _ExtrasStep extends StatelessWidget {
         ],
       ),
     );
-    nameController.dispose();
-    descController.dispose();
     if (result != null) {
       onProjectsChanged([...projects, result]);
     }
