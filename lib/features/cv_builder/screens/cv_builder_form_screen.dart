@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
@@ -49,8 +50,8 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
   late List<CertificationEntry> _certifications;
   late List<ProjectEntry> _projects;
 
+  // ده بيتحكم في لغة الملخص المتولّد (محتوى الـ CV)، مش نصوص الواجهة.
   bool get _uiArabic => Localizations.localeOf(context).languageCode == 'ar';
-  String _t(String en, String ar) => _uiArabic ? ar : en;
 
   @override
   void initState() {
@@ -154,8 +155,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
     switch (_step) {
       case _CvStep.personal:
         if (!_validatePersonal()) {
-          _showError(_t('Please fill in your name, job title, email and phone.',
-              'من فضلك املأ الاسم والمسمى الوظيفي والإيميل والتليفون.'));
+          _showError(context.tr('cv_builder_error_personal_required'));
           return;
         }
         setState(() => _step = _CvStep.summary);
@@ -211,25 +211,24 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _showError(_t('Could not save your CV. Please try again.',
-          'معرفناش نحفظ الـ CV. حاول تاني.'));
+      _showError(context.tr('cv_builder_error_save'));
     }
   }
 
   int get _stepIndex => _CvStep.values.indexOf(_step);
 
-  String _stepTitle(_CvStep step) {
+  String _stepTitle(BuildContext context, _CvStep step) {
     switch (step) {
       case _CvStep.personal:
-        return _t('Personal info', 'البيانات الشخصية');
+        return context.tr('cv_builder_step_personal');
       case _CvStep.summary:
-        return _t('Professional summary', 'الملخص الاحترافي');
+        return context.tr('cv_builder_step_summary');
       case _CvStep.experience:
-        return _t('Work experience', 'الخبرة العملية');
+        return context.tr('cv_builder_step_experience');
       case _CvStep.education:
-        return _t('Education', 'التعليم');
+        return context.tr('cv_builder_step_education');
       case _CvStep.extras:
-        return _t('Skills & more', 'المهارات وأكتر');
+        return context.tr('cv_builder_step_extras');
     }
   }
 
@@ -238,7 +237,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
     final textColor = Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_t('Create CV', 'إنشاء سيرة ذاتية'))),
+      appBar: AppBar(title: Text(context.tr('cv_builder_title'))),
       body: SafeArea(
         child: Center(
           child: ResponsiveContentWidth(
@@ -255,7 +254,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
                         minHeight: 4,
                       ),
                       const SizedBox(height: 10),
-                      Text(_stepTitle(_step), style: AppTextStyles.h3(textColor)),
+                      Text(_stepTitle(context, _step), style: AppTextStyles.h3(textColor)),
                     ],
                   ),
                 ),
@@ -265,7 +264,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
                     child: _buildStepBody(textColor),
                   ),
                 ),
-                _buildNavBar(),
+                _buildNavBar(context),
               ],
             ),
           ),
@@ -285,7 +284,6 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
           location: _location,
           linkedin: _linkedin,
           website: _website,
-          t: _t,
         );
       case _CvStep.summary:
         return _SummaryStep(
@@ -293,21 +291,16 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
           achievement: _achievement,
           summaryText: _summaryText,
           onGenerate: _generateSummary,
-          t: _t,
           textColor: textColor,
         );
       case _CvStep.experience:
         return _ExperienceStep(
           experiences: _experiences,
-          isArabic: _uiArabic,
-          t: _t,
           onChanged: (list) => setState(() => _experiences = list),
         );
       case _CvStep.education:
         return _EducationStep(
           education: _education,
-          isArabic: _uiArabic,
-          t: _t,
           onChanged: (list) => setState(() => _education = list),
         );
       case _CvStep.extras:
@@ -316,7 +309,6 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
           languages: _languages,
           certifications: _certifications,
           projects: _projects,
-          t: _t,
           onLanguagesChanged: (l) => setState(() => _languages = l),
           onCertificationsChanged: (c) => setState(() => _certifications = c),
           onProjectsChanged: (p) => setState(() => _projects = p),
@@ -324,7 +316,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
     }
   }
 
-  Widget _buildNavBar() {
+  Widget _buildNavBar(BuildContext context) {
     final isLast = _step == _CvStep.extras;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -333,7 +325,7 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
           Expanded(
             child: OutlinedButton(
               onPressed: _saving ? null : _back,
-              child: Text(_t('Back', 'رجوع')),
+              child: Text(context.tr('cv_builder_back')),
             ),
           ),
           const SizedBox(width: 12),
@@ -347,7 +339,9 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-                  : Text(isLast ? _t('Continue to templates', 'كمل لاختيار التصميم') : _t('Next', 'التالي')),
+                  : Text(isLast
+                  ? context.tr('cv_builder_continue_templates')
+                  : context.tr('cv_builder_next')),
             ),
           ),
         ],
@@ -355,8 +349,6 @@ class _CvBuilderFormScreenState extends State<CvBuilderFormScreen> {
     );
   }
 }
-
-typedef _T = String Function(String en, String ar);
 
 class _PersonalInfoStep extends StatelessWidget {
   const _PersonalInfoStep({
@@ -367,7 +359,6 @@ class _PersonalInfoStep extends StatelessWidget {
     required this.location,
     required this.linkedin,
     required this.website,
-    required this.t,
   });
 
   final TextEditingController fullName;
@@ -377,7 +368,6 @@ class _PersonalInfoStep extends StatelessWidget {
   final TextEditingController location;
   final TextEditingController linkedin;
   final TextEditingController website;
-  final _T t;
 
   Widget _field(TextEditingController c, String label, {String? hint}) {
     return Padding(
@@ -398,13 +388,13 @@ class _PersonalInfoStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _field(fullName, '${t('Full name', 'الاسم بالكامل')} *'),
-        _field(jobTitle, '${t('Job title', 'المسمى الوظيفي')} *'),
-        _field(email, '${t('Email', 'البريد الإلكتروني')} *'),
-        _field(phone, '${t('Phone', 'رقم الهاتف')} *'),
-        _field(location, t('Location', 'الموقع')),
-        _field(linkedin, t('LinkedIn URL (optional)', 'رابط لينكدإن (اختياري)')),
-        _field(website, t('Website / Portfolio (optional)', 'موقعك الشخصي (اختياري)')),
+        _field(fullName, '${context.tr('cv_builder_field_full_name')} *'),
+        _field(jobTitle, '${context.tr('cv_builder_field_job_title')} *'),
+        _field(email, '${context.tr('auth_email')} *'),
+        _field(phone, '${context.tr('cv_builder_field_phone')} *'),
+        _field(location, context.tr('field_location')),
+        _field(linkedin, context.tr('cv_builder_field_linkedin')),
+        _field(website, context.tr('cv_builder_field_website')),
       ],
     );
   }
@@ -416,7 +406,6 @@ class _SummaryStep extends StatelessWidget {
     required this.achievement,
     required this.summaryText,
     required this.onGenerate,
-    required this.t,
     required this.textColor,
   });
 
@@ -424,7 +413,6 @@ class _SummaryStep extends StatelessWidget {
   final TextEditingController achievement;
   final TextEditingController summaryText;
   final VoidCallback onGenerate;
-  final _T t;
   final Color textColor;
 
   @override
@@ -433,10 +421,7 @@ class _SummaryStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          t(
-            'We\'ll write a professional summary for you based on your top skills and (optionally) a key achievement. You can edit it afterwards.',
-            'هنكتبلك ملخص احترافي على أساس أهم مهاراتك و(اختياريًا) أبرز إنجاز ليك. تقدر تعدّل عليه بعد كده.',
-          ),
+          context.tr('cv_builder_summary_intro'),
           style: AppTextStyles.bodySmall(textColor),
         ),
         const SizedBox(height: 16),
@@ -444,8 +429,8 @@ class _SummaryStep extends StatelessWidget {
           controller: summarySkills,
           maxLines: 2,
           decoration: InputDecoration(
-            labelText: t('Top skills', 'أهم مهاراتك'),
-            hintText: t('Flutter, Firebase, UI design', 'Flutter, Firebase, UI design'),
+            labelText: context.tr('cv_builder_top_skills'),
+            hintText: context.tr('cv_builder_skills_hint_example'),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -454,9 +439,8 @@ class _SummaryStep extends StatelessWidget {
           controller: achievement,
           maxLines: 2,
           decoration: InputDecoration(
-            labelText: t('Key achievement (optional)', 'أبرز إنجاز (اختياري)'),
-            hintText: t('Led a redesign that increased activation by 18%',
-                'قدت إعادة تصميم زوّدت نسبة التفعيل 18%'),
+            labelText: context.tr('cv_builder_key_achievement'),
+            hintText: context.tr('cv_builder_achievement_hint'),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -465,8 +449,8 @@ class _SummaryStep extends StatelessWidget {
           onPressed: onGenerate,
           icon: const Icon(Icons.auto_awesome),
           label: Text(summaryText.text.isEmpty
-              ? t('Generate summary', 'اكتب الملخص')
-              : t('Regenerate', 'اعمل نسخة جديدة')),
+              ? context.tr('cv_builder_generate_summary')
+              : context.tr('cv_builder_regenerate_summary')),
         ),
         const SizedBox(height: 16),
         TextField(
@@ -474,7 +458,7 @@ class _SummaryStep extends StatelessWidget {
           maxLines: 6,
           minLines: 4,
           decoration: InputDecoration(
-            labelText: t('Professional summary', 'الملخص الاحترافي'),
+            labelText: context.tr('cv_builder_step_summary'),
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,
           ),
@@ -487,14 +471,10 @@ class _SummaryStep extends StatelessWidget {
 class _ExperienceStep extends StatelessWidget {
   const _ExperienceStep({
     required this.experiences,
-    required this.isArabic,
-    required this.t,
     required this.onChanged,
   });
 
   final List<ExperienceEntry> experiences;
-  final bool isArabic;
-  final _T t;
   final ValueChanged<List<ExperienceEntry>> onChanged;
 
   Future<void> _addOrEdit(BuildContext context, {int? index}) async {
@@ -504,7 +484,6 @@ class _ExperienceStep extends StatelessWidget {
       showDragHandle: true,
       builder: (_) => _ExperienceEditor(
         initial: index != null ? experiences[index] : null,
-        t: t,
       ),
     );
     if (result == null) return;
@@ -528,7 +507,7 @@ class _ExperienceStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (experiences.isEmpty)
-          Text(t('No experience added yet.', 'لسه مفيش خبرات متضافة.'),
+          Text(context.tr('cv_builder_no_experience'),
               style: AppTextStyles.bodyMedium(Theme.of(context).colorScheme.onSurface)),
         for (var i = 0; i < experiences.length; i++)
           AppCard(
@@ -536,7 +515,7 @@ class _ExperienceStep extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text('${experiences[i].jobTitle} — ${experiences[i].company}'),
               subtitle: Text(experiences[i].isCurrent
-                  ? t('Present', 'حتى الآن')
+                  ? context.tr('cv_builder_present')
                   : (experiences[i].endDate != null
                   ? '${experiences[i].startDate.year} - ${experiences[i].endDate!.year}'
                   : '${experiences[i].startDate.year}')),
@@ -559,7 +538,7 @@ class _ExperienceStep extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => _addOrEdit(context),
           icon: const Icon(Icons.add),
-          label: Text(t('Add experience', 'إضافة خبرة')),
+          label: Text(context.tr('cv_builder_add_experience')),
         ),
       ],
     );
@@ -567,9 +546,8 @@ class _ExperienceStep extends StatelessWidget {
 }
 
 class _ExperienceEditor extends StatefulWidget {
-  const _ExperienceEditor({this.initial, required this.t});
+  const _ExperienceEditor({this.initial});
   final ExperienceEntry? initial;
-  final _T t;
 
   @override
   State<_ExperienceEditor> createState() => _ExperienceEditorState();
@@ -628,9 +606,7 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
   void _save() {
     if (_company.text.trim().isEmpty || _jobTitle.text.trim().isEmpty || _startDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.t(
-            'Please fill in company, job title and start date.',
-            'من فضلك املأ اسم الشركة والمسمى الوظيفي وتاريخ البداية.'))),
+        SnackBar(content: Text(context.tr('cv_builder_error_experience_required'))),
       );
       return;
     }
@@ -652,7 +628,6 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final t = widget.t;
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -665,21 +640,28 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(t('Work experience', 'الخبرة العملية'), style: AppTextStyles.h3(Theme.of(context).colorScheme.onSurface)),
+            Text(context.tr('cv_builder_step_experience'),
+                style: AppTextStyles.h3(Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 16),
             TextField(
               controller: _jobTitle,
-              decoration: InputDecoration(labelText: '${t('Job title', 'المسمى الوظيفي')} *', border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: '${context.tr('cv_builder_field_job_title')} *',
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _company,
-              decoration: InputDecoration(labelText: '${t('Company', 'الشركة')} *', border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: '${context.tr('cv_builder_field_company')} *',
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _location,
-              decoration: InputDecoration(labelText: t('Location (optional)', 'الموقع (اختياري)'), border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: context.tr('cv_builder_field_location_optional'),
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             Row(
@@ -688,7 +670,7 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
                   child: OutlinedButton(
                     onPressed: () => _pickDate(isStart: true),
                     child: Text(_startDate == null
-                        ? '${t('Start date', 'تاريخ البداية')} *'
+                        ? '${context.tr('cv_builder_start_date')} *'
                         : '${_startDate!.year}/${_startDate!.month}'),
                   ),
                 ),
@@ -697,9 +679,9 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
                   child: OutlinedButton(
                     onPressed: _isCurrent ? null : () => _pickDate(isStart: false),
                     child: Text(_isCurrent
-                        ? t('Present', 'حتى الآن')
+                        ? context.tr('cv_builder_present')
                         : (_endDate == null
-                        ? t('End date', 'تاريخ النهاية')
+                        ? context.tr('cv_builder_end_date')
                         : '${_endDate!.year}/${_endDate!.month}')),
                   ),
                 ),
@@ -708,7 +690,7 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
             CheckboxListTile(
               value: _isCurrent,
               onChanged: (v) => setState(() => _isCurrent = v ?? false),
-              title: Text(t('I currently work here', 'لسه شغال هنا')),
+              title: Text(context.tr('cv_builder_currently_work_here')),
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
             ),
@@ -718,7 +700,7 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
               maxLines: 4,
               minLines: 3,
               decoration: InputDecoration(
-                labelText: t('Key responsibilities / achievements (one per line)', 'أهم المهام/الإنجازات (سطر لكل نقطة)'),
+                labelText: context.tr('cv_builder_bullets_label'),
                 border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
@@ -726,7 +708,8 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(onPressed: _save, child: Text(t('Save', 'حفظ'))),
+              child: FilledButton(
+                  onPressed: _save, child: Text(context.tr('save'))),
             ),
           ],
         ),
@@ -738,14 +721,10 @@ class _ExperienceEditorState extends State<_ExperienceEditor> {
 class _EducationStep extends StatelessWidget {
   const _EducationStep({
     required this.education,
-    required this.isArabic,
-    required this.t,
     required this.onChanged,
   });
 
   final List<EducationEntry> education;
-  final bool isArabic;
-  final _T t;
   final ValueChanged<List<EducationEntry>> onChanged;
 
   Future<void> _addOrEdit(BuildContext context, {int? index}) async {
@@ -755,7 +734,6 @@ class _EducationStep extends StatelessWidget {
       showDragHandle: true,
       builder: (_) => _EducationEditor(
         initial: index != null ? education[index] : null,
-        t: t,
       ),
     );
     if (result == null) return;
@@ -779,7 +757,7 @@ class _EducationStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (education.isEmpty)
-          Text(t('No education added yet.', 'لسه مفيش بيانات تعليمية.'),
+          Text(context.tr('cv_builder_no_education'),
               style: AppTextStyles.bodyMedium(Theme.of(context).colorScheme.onSurface)),
         for (var i = 0; i < education.length; i++)
           AppCard(
@@ -806,7 +784,7 @@ class _EducationStep extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => _addOrEdit(context),
           icon: const Icon(Icons.add),
-          label: Text(t('Add education', 'إضافة مؤهل دراسي')),
+          label: Text(context.tr('cv_builder_add_education')),
         ),
       ],
     );
@@ -814,9 +792,8 @@ class _EducationStep extends StatelessWidget {
 }
 
 class _EducationEditor extends StatefulWidget {
-  const _EducationEditor({this.initial, required this.t});
+  const _EducationEditor({this.initial});
   final EducationEntry? initial;
-  final _T t;
 
   @override
   State<_EducationEditor> createState() => _EducationEditorState();
@@ -873,9 +850,7 @@ class _EducationEditorState extends State<_EducationEditor> {
   void _save() {
     if (_institution.text.trim().isEmpty || _degree.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.t(
-            'Please fill in institution and degree.',
-            'من فضلك املأ اسم المؤسسة التعليمية والمؤهل.'))),
+        SnackBar(content: Text(context.tr('cv_builder_error_education_required'))),
       );
       return;
     }
@@ -892,7 +867,6 @@ class _EducationEditorState extends State<_EducationEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final t = widget.t;
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -905,21 +879,28 @@ class _EducationEditorState extends State<_EducationEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(t('Education', 'التعليم'), style: AppTextStyles.h3(Theme.of(context).colorScheme.onSurface)),
+            Text(context.tr('cv_builder_step_education'),
+                style: AppTextStyles.h3(Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 16),
             TextField(
               controller: _institution,
-              decoration: InputDecoration(labelText: '${t('Institution', 'المؤسسة التعليمية')} *', border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: '${context.tr('cv_builder_field_institution')} *',
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _degree,
-              decoration: InputDecoration(labelText: '${t('Degree', 'المؤهل')} *', border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: '${context.tr('cv_builder_field_degree')} *',
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _field,
-              decoration: InputDecoration(labelText: t('Field of study (optional)', 'التخصص (اختياري)'), border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: context.tr('cv_builder_field_of_study'),
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             Row(
@@ -928,7 +909,7 @@ class _EducationEditorState extends State<_EducationEditor> {
                   child: OutlinedButton(
                     onPressed: () => _pickDate(isStart: true),
                     child: Text(_startDate == null
-                        ? t('Start date', 'تاريخ البداية')
+                        ? context.tr('cv_builder_start_date')
                         : '${_startDate!.year}'),
                   ),
                 ),
@@ -937,7 +918,7 @@ class _EducationEditorState extends State<_EducationEditor> {
                   child: OutlinedButton(
                     onPressed: () => _pickDate(isStart: false),
                     child: Text(_endDate == null
-                        ? t('End date', 'تاريخ النهاية')
+                        ? context.tr('cv_builder_end_date')
                         : '${_endDate!.year}'),
                   ),
                 ),
@@ -946,12 +927,15 @@ class _EducationEditorState extends State<_EducationEditor> {
             const SizedBox(height: 14),
             TextField(
               controller: _grade,
-              decoration: InputDecoration(labelText: t('Grade (optional)', 'التقدير (اختياري)'), border: const OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: context.tr('cv_builder_grade'),
+                  border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(onPressed: _save, child: Text(t('Save', 'حفظ'))),
+              child: FilledButton(
+                  onPressed: _save, child: Text(context.tr('save'))),
             ),
           ],
         ),
@@ -966,7 +950,6 @@ class _ExtrasStep extends StatelessWidget {
     required this.languages,
     required this.certifications,
     required this.projects,
-    required this.t,
     required this.onLanguagesChanged,
     required this.onCertificationsChanged,
     required this.onProjectsChanged,
@@ -976,10 +959,22 @@ class _ExtrasStep extends StatelessWidget {
   final List<LanguageEntry> languages;
   final List<CertificationEntry> certifications;
   final List<ProjectEntry> projects;
-  final _T t;
   final ValueChanged<List<LanguageEntry>> onLanguagesChanged;
   final ValueChanged<List<CertificationEntry>> onCertificationsChanged;
   final ValueChanged<List<ProjectEntry>> onProjectsChanged;
+
+  String _levelLabel(BuildContext context, LanguageLevel level) {
+    switch (level) {
+      case LanguageLevel.basic:
+        return context.tr('cv_builder_level_basic');
+      case LanguageLevel.conversational:
+        return context.tr('cv_builder_level_conversational');
+      case LanguageLevel.fluent:
+        return context.tr('cv_builder_level_fluent');
+      case LanguageLevel.native:
+        return context.tr('cv_builder_level_native');
+    }
+  }
 
   Future<void> _addLanguage(BuildContext context) async {
     final nameController = TextEditingController();
@@ -988,53 +983,43 @@ class _ExtrasStep extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text(t('Add language', 'إضافة لغة')),
+          title: Text(ctx.tr('cv_builder_add_language_title')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: t('Language', 'اللغة')),
+                decoration: InputDecoration(labelText: ctx.tr('cv_builder_language_label')),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<LanguageLevel>(
                 initialValue: level,
                 items: [
                   for (final l in LanguageLevel.values)
-                    DropdownMenuItem(value: l, child: Text(_levelLabel(l))),
+                    DropdownMenuItem(value: l, child: Text(_levelLabel(ctx, l))),
                 ],
                 onChanged: (v) => setState(() => level = v ?? level),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t('Cancel', 'إلغاء'))),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(ctx.tr('cancel'))),
             FilledButton(
               onPressed: () {
                 if (nameController.text.trim().isEmpty) return;
                 Navigator.pop(ctx, LanguageEntry(name: nameController.text.trim(), level: level));
               },
-              child: Text(t('Add', 'إضافة')),
+              child: Text(ctx.tr('cv_builder_add')),
             ),
           ],
         ),
       ),
     );
+    nameController.dispose();
     if (result != null) {
       onLanguagesChanged([...languages, result]);
-    }
-  }
-
-  String _levelLabel(LanguageLevel level) {
-    switch (level) {
-      case LanguageLevel.basic:
-        return t('Basic', 'أساسي');
-      case LanguageLevel.conversational:
-        return t('Conversational', 'محادثة');
-      case LanguageLevel.fluent:
-        return t('Fluent', 'طلاقة');
-      case LanguageLevel.native:
-        return t('Native', 'اللغة الأم');
     }
   }
 
@@ -1044,17 +1029,23 @@ class _ExtrasStep extends StatelessWidget {
     final result = await showDialog<CertificationEntry>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(t('Add certification', 'إضافة شهادة')),
+        title: Text(ctx.tr('cv_builder_add_certification_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: InputDecoration(labelText: t('Certification name', 'اسم الشهادة'))),
+            TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: ctx.tr('cv_builder_certification_name'))),
             const SizedBox(height: 12),
-            TextField(controller: issuerController, decoration: InputDecoration(labelText: t('Issuer', 'الجهة المانحة'))),
+            TextField(
+                controller: issuerController,
+                decoration: InputDecoration(labelText: ctx.tr('cv_builder_issuer'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t('Cancel', 'إلغاء'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ctx.tr('cancel'))),
           FilledButton(
             onPressed: () {
               if (nameController.text.trim().isEmpty) return;
@@ -1063,11 +1054,13 @@ class _ExtrasStep extends StatelessWidget {
                 issuer: issuerController.text.trim(),
               ));
             },
-            child: Text(t('Add', 'إضافة')),
+            child: Text(ctx.tr('cv_builder_add')),
           ),
         ],
       ),
     );
+    nameController.dispose();
+    issuerController.dispose();
     if (result != null) {
       onCertificationsChanged([...certifications, result]);
     }
@@ -1079,17 +1072,24 @@ class _ExtrasStep extends StatelessWidget {
     final result = await showDialog<ProjectEntry>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(t('Add project', 'إضافة مشروع')),
+        title: Text(ctx.tr('cv_builder_add_project_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: InputDecoration(labelText: t('Project name', 'اسم المشروع'))),
+            TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: ctx.tr('cv_builder_project_name'))),
             const SizedBox(height: 12),
-            TextField(controller: descController, maxLines: 3, decoration: InputDecoration(labelText: t('Description (optional)', 'الوصف (اختياري)'))),
+            TextField(
+                controller: descController,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: ctx.tr('cv_builder_description_optional'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t('Cancel', 'إلغاء'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ctx.tr('cancel'))),
           FilledButton(
             onPressed: () {
               if (nameController.text.trim().isEmpty) return;
@@ -1098,11 +1098,13 @@ class _ExtrasStep extends StatelessWidget {
                 description: descController.text.trim().isEmpty ? null : descController.text.trim(),
               ));
             },
-            child: Text(t('Add', 'إضافة')),
+            child: Text(ctx.tr('cv_builder_add')),
           ),
         ],
       ),
     );
+    nameController.dispose();
+    descController.dispose();
     if (result != null) {
       onProjectsChanged([...projects, result]);
     }
@@ -1114,13 +1116,13 @@ class _ExtrasStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t('Skills', 'المهارات'), style: AppTextStyles.h3(textColor)),
+        Text(context.tr('cv_builder_skills_label'), style: AppTextStyles.h3(textColor)),
         const SizedBox(height: 8),
         TextField(
           controller: skillsText,
           maxLines: 2,
           decoration: InputDecoration(
-            hintText: t('Flutter, Firebase, REST APIs', 'Flutter, Firebase, REST APIs'),
+            hintText: context.tr('cv_builder_skills_hint'),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -1128,8 +1130,11 @@ class _ExtrasStep extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(t('Languages', 'اللغات'), style: AppTextStyles.h3(textColor)),
-            TextButton.icon(onPressed: () => _addLanguage(context), icon: const Icon(Icons.add), label: Text(t('Add', 'إضافة'))),
+            Text(context.tr('cv_builder_languages_label'), style: AppTextStyles.h3(textColor)),
+            TextButton.icon(
+                onPressed: () => _addLanguage(context),
+                icon: const Icon(Icons.add),
+                label: Text(context.tr('cv_builder_add'))),
           ],
         ),
         Wrap(
@@ -1138,7 +1143,7 @@ class _ExtrasStep extends StatelessWidget {
           children: [
             for (var i = 0; i < languages.length; i++)
               Chip(
-                label: Text('${languages[i].name} — ${_levelLabel(languages[i].level)}'),
+                label: Text('${languages[i].name} — ${_levelLabel(context, languages[i].level)}'),
                 onDeleted: () => onLanguagesChanged(List.of(languages)..removeAt(i)),
               ),
           ],
@@ -1147,8 +1152,11 @@ class _ExtrasStep extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(t('Certifications', 'الشهادات'), style: AppTextStyles.h3(textColor)),
-            TextButton.icon(onPressed: () => _addCertification(context), icon: const Icon(Icons.add), label: Text(t('Add', 'إضافة'))),
+            Text(context.tr('cv_builder_certifications_label'), style: AppTextStyles.h3(textColor)),
+            TextButton.icon(
+                onPressed: () => _addCertification(context),
+                icon: const Icon(Icons.add),
+                label: Text(context.tr('cv_builder_add'))),
           ],
         ),
         for (var i = 0; i < certifications.length; i++)
@@ -1165,8 +1173,11 @@ class _ExtrasStep extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(t('Projects', 'المشاريع'), style: AppTextStyles.h3(textColor)),
-            TextButton.icon(onPressed: () => _addProject(context), icon: const Icon(Icons.add), label: Text(t('Add', 'إضافة'))),
+            Text(context.tr('cv_builder_projects_label'), style: AppTextStyles.h3(textColor)),
+            TextButton.icon(
+                onPressed: () => _addProject(context),
+                icon: const Icon(Icons.add),
+                label: Text(context.tr('cv_builder_add'))),
           ],
         ),
         for (var i = 0; i < projects.length; i++)

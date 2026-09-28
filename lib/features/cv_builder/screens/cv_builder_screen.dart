@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../core/localization/app_localizations.dart';
 import '../providers/cv_builder_provider.dart';
 import '../templates/cv_template_registry.dart';
 import 'cv_builder_form_screen.dart';
@@ -23,9 +25,6 @@ class _CvBuilderEntryScreenState extends State<CvBuilderEntryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _createDraft());
   }
-
-  bool get _uiArabic => Localizations.localeOf(context).languageCode == 'ar';
-  String _t(String en, String ar) => _uiArabic ? ar : en;
 
   Future<void> _createDraft() async {
     setState(() => _error = null);
@@ -59,14 +58,13 @@ class _CvBuilderEntryScreenState extends State<CvBuilderEntryScreen> {
               const Icon(Icons.error_outline, size: 40),
               const SizedBox(height: 12),
               Text(
-                _t('Could not start the CV builder. Please try again.',
-                    'معرفناش نبدأ منشئ الـ CV. حاول تاني.'),
+                context.tr('cv_builder_entry_error'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: _createDraft,
-                child: Text(_t('Retry', 'إعادة المحاولة')),
+                child: Text(context.tr('retry')),
               ),
             ],
           ),

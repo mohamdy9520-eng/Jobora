@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
 import '../models/cv_builder_model.dart';
@@ -30,8 +31,9 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
   late CvTemplate _selectedTemplate;
   bool _savingTemplate = false;
 
+  // ده خاص بمحتوى الـ CV نفسه (لغة الـ PDF)، مش نصوص الواجهة —
+  // فضل مستقل عن نظام context.tr().
   bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
-  String _t(String en, String ar) => _isArabic ? ar : en;
 
   @override
   void initState() {
@@ -75,11 +77,11 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_t('Preview & export', 'المعاينة والتصدير')),
+        title: Text(context.tr('cv_builder_preview_export_title')),
         actions: [
           TextButton(
             onPressed: _editCv,
-            child: Text(_t('Edit', 'تعديل')),
+            child: Text(context.tr('cv_builder_edit')),
           ),
         ],
       ),
@@ -89,7 +91,7 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
             maxWidth: 900,
             child: Column(
               children: [
-                _buildTemplatePicker(textColor),
+                _buildTemplatePicker(context, textColor),
                 Expanded(
                   child: PdfPreview(
                     key: ValueKey(_selectedTemplate.id),
@@ -106,10 +108,7 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          _t(
-                            'Could not generate the preview. Please try again.',
-                            'معرفناش نجهز المعاينة. حاول تاني.',
-                          ),
+                          context.tr('cv_builder_preview_error'),
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyMedium(textColor),
                         ),
@@ -125,7 +124,7 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
     );
   }
 
-  Widget _buildTemplatePicker(Color textColor) {
+  Widget _buildTemplatePicker(BuildContext context, Color textColor) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Column(
@@ -133,7 +132,7 @@ class _CvBuilderReviewScreenState extends State<CvBuilderReviewScreen> {
         children: [
           Row(
             children: [
-              Text(_t('Template', 'التصميم'), style: AppTextStyles.h3(textColor)),
+              Text(context.tr('cv_builder_template_label'), style: AppTextStyles.h3(textColor)),
               if (_savingTemplate) ...[
                 const SizedBox(width: 10),
                 const SizedBox(
