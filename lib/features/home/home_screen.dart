@@ -10,8 +10,11 @@ import '../../core/utils/responsive.dart';
 import '../../core/widgets/app_card.dart';
 import '../applications/providers/application_provider.dart';
 import '../cv/providers/cv_provider.dart';
+import '../cv_builder/models/cv_builder_model.dart';
+import '../cv_builder/providers/cv_builder_provider.dart';
 import '../interviews/providers/interview_provider.dart';
 import '../subscriptions/providers/subscription_provider.dart';
+import 'cv_completeness_analyzer.dart';
 import 'home_controller.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -30,12 +33,13 @@ class HomeScreen extends StatelessWidget {
     final auth = context.watch<AuthController>();
     final home = context.watch<HomeController>();
 
-    // Real, live data — these three providers are Firestore streams, so
+    // Real, live data — these providers are Firestore streams, so
     // everything below updates the moment something changes anywhere in
     // the app, no manual refresh needed.
     final applicationProvider = context.watch<ApplicationProvider>();
     final interviewProvider = context.watch<InterviewProvider>();
     final cvProvider = context.watch<CvProvider>();
+    final cvBuilderProvider = context.watch<CvBuilderProvider>();
 
     // Practice Interview is a Premium feature: non-subscribers see a lock
     // on the card and are sent to the paywall instead.
@@ -58,6 +62,20 @@ class HomeScreen extends StatelessWidget {
       cvs: cvProvider.cvs.length,
     );
 
+    // The CV the user built with the CV Builder, described as plain values
+    // so CvCompletenessAnalyzer can tell what's missing. Blank drafts
+    // (created the moment the user opens the Builder) are ignored, so an
+    // empty draft doesn't produce a wall of "you're missing everything".
+    final CvCompletenessInput? builderCv =
+    _builderInput(cvBuilderProvider.cvs);
+
+    // Local analysis of the latest uploaded file (PDF text extraction runs
+    // on-device, no API). null while it's still being analyzed.
+    final latestUpload =
+    cvProvider.cvs.isEmpty ? null : cvProvider.cvs.first;
+    final fileAnalysis =
+    latestUpload == null ? null : cvProvider.analysisFor(latestUpload.id);
+
     // HomeController's builders are pure — feed them the live lists from
     // their own providers instead of relying on HomeController to fetch
     // application/interview/cv data itself. `tr: context.tr` is passed
@@ -68,7 +86,12 @@ class HomeScreen extends StatelessWidget {
     final attentionItems = home.buildAttentionItems(
         applicationProvider.applications,
         tr: context.tr);
-    final cvTips = home.buildCvTips(cvProvider.cvs, tr: context.tr);
+    final cvTips = home.buildCvTips(
+      cvProvider.cvs,
+      builderCv: builderCv,
+      fileAnalysis: fileAnalysis,
+      tr: context.tr,
+    );
     final upcomingInterviews = home.buildUpcomingInterviews(
         interviewProvider.interviews,
         tr: context.tr);
@@ -319,7 +342,7 @@ class HomeScreen extends StatelessWidget {
                         onTap: () =>
                             context.push(AppRoutes.addInterview),
                       ),
-                      // ── New: build a CV from scratch (middle card) ──
+                      // ── Build a CV from scratch (middle card) ──
                       // Distinct from "home_add_cv" below, which
                       // uploads an existing file. This one starts the
                       // CvBuilderEntryScreen → CvBuilderFormScreen flow.
@@ -361,11 +384,17 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxl),
 
                 // ── CV tips (bottom of the page) ────────────
+                // Local tips only (no AI): personal/missing-content
+                // tips first, then a daily-rotating general tip.
+                // Tips with opensBuilder are tappable → CV Builder.
                 _SectionHeader(
                     title: context.tr('home_cv_tips_title')),
                 const SizedBox(height: AppSpacing.md),
                 for (final tip in cvTips) ...[
                   AppCard(
+                    onTap: tip.opensBuilder
+                        ? () => context.push(AppRoutes.cvBuilder)
+                        : null,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -386,6 +415,10 @@ class HomeScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (tip.opensBuilder) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          const Icon(Icons.chevron_right),
+                        ],
                       ],
                     ),
                   ),
@@ -399,6 +432,52 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CV Builder → CvCompletenessInput mapping
+// ─────────────────────────────────────────────────────────────
+
+final RegExp _digit = RegExp(r'[0-9٠-٩]');
+
+/// A draft is created the moment the user opens the CV Builder, so an
+/// untouched draft must not count as "a CV with everything missing".
+bool _isBlankDraft(CvBuilderModel m) =>
+    m.personalInfo.fullName.trim().isEmpty &&
+        m.personalInfo.email.trim().isEmpty &&
+        m.summary.trim().isEmpty &&
+        m.experiences.isEmpty &&
+        m.education.isEmpty &&
+        m.skills.isEmpty;
+
+/// Describes the most recently updated non-blank Builder CV as plain
+/// values for CvCompletenessAnalyzer, or null if there isn't one.
+CvCompletenessInput? _builderInput(List<CvBuilderModel> all) {
+  CvBuilderModel? latest;
+  for (final m in all) {
+    if (_isBlankDraft(m)) continue;
+    if (latest == null || m.updatedAt.isAfter(latest.updatedAt)) latest = m;
+  }
+  if (latest == null) return null;
+  final b = latest;
+
+  bool filled(String? s) => s != null && s.trim().isNotEmpty;
+
+  return CvCompletenessInput(
+    hasEmail: filled(b.personalInfo.email),
+    hasPhone: filled(b.personalInfo.phone),
+    hasLink: filled(b.personalInfo.linkedinUrl) ||
+        filled(b.personalInfo.websiteUrl),
+    summaryLength: b.summary.trim().length,
+    experienceCount: b.experiences.length,
+    experienceHasNumbers:
+    b.experiences.any((e) => e.bullets.any(_digit.hasMatch)),
+    educationCount: b.education.length,
+    skillsCount: b.skills.length,
+    projectsCount: b.projects.length,
+    certificationsCount: b.certifications.length,
+    languagesCount: b.languages.length,
+  );
 }
 
 /// Shown when HomeController's own load() fails. Applications/interviews/

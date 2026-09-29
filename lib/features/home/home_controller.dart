@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../../core/models/application_model.dart';
 import '../../core/models/cv_model.dart';
 import '../../core/models/interview_model.dart';
+import '../cv_builder/services/cv_text_extractor.dart';
+import 'cv_completeness_analyzer.dart';
+import 'cv_tips_repository.dart';
 
 /// Signature matching `AppLocalizationsX.tr` — passed in from the screen
 /// so this controller stays free of BuildContext, while still producing
@@ -61,15 +64,19 @@ class InsightData {
 }
 
 /// One actionable suggestion related to the user's CV.
+/// [opensBuilder] = true means the card is tappable and should open the
+/// CV Builder (used for "you're missing X" tips).
 class CvTipData {
   final IconData icon;
   final String title;
   final String message;
+  final bool opensBuilder;
 
   const CvTipData({
     required this.icon,
     required this.title,
     required this.message,
+    this.opensBuilder = false,
   });
 }
 
@@ -112,10 +119,7 @@ class HomeController extends ChangeNotifier {
   /// ApplicationProvider.
   ///
   /// NOTE: these are template-based observations, not real NLP/AI
-  /// analysis — [tr] just localizes the current templates. Once this
-  /// grows into AI-generated insights, the generation itself needs to
-  /// happen in the user's locale (e.g. via a prompt), not through these
-  /// translation keys.
+  /// analysis — [tr] just localizes the current templates.
   List<InsightData> buildInsights(
       List<ApplicationModel> apps, {
         required Translator tr,
@@ -131,7 +135,8 @@ class HomeController extends ChangeNotifier {
     if (thisWeek > 0) {
       insights.add(InsightData(
         icon: Icons.trending_up,
-        message: tr('home_insight_applications_this_week', {'count': thisWeek.toString()}),
+        message: tr('home_insight_applications_this_week',
+            {'count': thisWeek.toString()}),
       ));
     }
 
@@ -143,7 +148,8 @@ class HomeController extends ChangeNotifier {
     if (stale > 0) {
       insights.add(InsightData(
         icon: Icons.schedule_outlined,
-        message: tr('home_insight_stale_applications', {'count': stale.toString()}),
+        message: tr('home_insight_stale_applications',
+            {'count': stale.toString()}),
       ));
     }
 
@@ -163,7 +169,8 @@ class HomeController extends ChangeNotifier {
             : tr('work_type_onsite');
         insights.add(InsightData(
           icon: Icons.insights_outlined,
-          message: tr('home_insight_better_response_rate', {'type': betterType}),
+          message:
+          tr('home_insight_better_response_rate', {'type': betterType}),
         ));
       }
     }
@@ -187,7 +194,8 @@ class HomeController extends ChangeNotifier {
     if (stale.isNotEmpty) {
       items.add(AttentionItemData(
         icon: Icons.hourglass_bottom_outlined,
-        title: tr('home_attention_stale_title', {'count': stale.length.toString()}),
+        title: tr('home_attention_stale_title',
+            {'count': stale.length.toString()}),
         subtitle: tr('home_attention_stale_subtitle'),
       ));
     }
@@ -195,71 +203,102 @@ class HomeController extends ChangeNotifier {
     return items;
   }
 
-  /// CV tips based on FILE PRESENCE ONLY. CvModel currently stores just
-  /// file metadata (name, url, size, type) — no extracted text — so
-  /// content checks (email present, skills section, quantified
-  /// achievements, keyword match, etc.) can't run yet. Once a
-  /// text-extraction step exists and CvModel exposes the parsed text,
-  /// this can grow into real content analysis (at which point tips stop
-  /// being template-based and [tr] alone won't be enough — dynamic,
-  /// per-CV content will need to be generated directly in the user's
-  /// locale).
-  List<CvTipData> buildCvTips(List<CvModel> cvs, {required Translator tr}) {
+  /// CV tips, all local (no AI, no network). Card order:
+  ///   1) file-based tips about the uploaded CVs (presence/age/size),
+  ///   2) "you're missing X" tips from [builderCv] via CvCompletenessAnalyzer
+  ///      (tappable, they open the CV Builder),
+  ///   3) general tips from CvTipsRepository, rotating daily.
+  /// At most [maxCards] cards, and at least one general tip always shows.
+  List<CvTipData> buildCvTips(
+      List<CvModel> cvs, {
+        CvCompletenessInput? builderCv,
+        CvFileAnalysis? fileAnalysis,
+        required Translator tr,
+      }) {
+    const maxCards = 4;
+    const maxPriorityCards = 3;
+
+    final priority = <CvTipData>[];
+
+    // ── 1) File-based tips ──
     if (cvs.isEmpty) {
-      return [
-        CvTipData(
-          icon: Icons.upload_file_outlined,
-          title: tr('home_cv_tip_upload_title'),
-          message: tr('home_cv_tip_upload_message'),
-        ),
-      ];
-    }
-
-    // watchAll() in CvRepository already orders by uploadedAt descending,
-    // so cvs.first is the latest one.
-    final latest = cvs.first;
-    final tips = <CvTipData>[];
-
-    // File freshness — a CV untouched for ~4 months is worth revisiting.
-    final ageInDays = DateTime.now().difference(latest.uploadedAt).inDays;
-    if (ageInDays > 120) {
-      tips.add(CvTipData(
-        icon: Icons.update,
-        title: tr('home_cv_tip_update_title'),
-        message: tr('home_cv_tip_update_message'),
+      priority.add(CvTipData(
+        icon: Icons.upload_file_outlined,
+        title: tr('home_cv_tip_upload_title'),
+        message: tr('home_cv_tip_upload_message'),
       ));
+    } else {
+      final latest = cvs.first;
+
+      final ageInDays = DateTime.now().difference(latest.uploadedAt).inDays;
+      if (ageInDays > 120) {
+        priority.add(CvTipData(
+          icon: Icons.update,
+          title: tr('home_cv_tip_update_title'),
+          message: tr('home_cv_tip_update_message'),
+        ));
+      }
+
+      if (cvs.length > 1) {
+        priority.add(CvTipData(
+          icon: Icons.delete_sweep_outlined,
+          title: tr('home_cv_tip_cleanup_title'),
+          message: tr('home_cv_tip_cleanup_message',
+              {'count': cvs.length.toString()}),
+        ));
+      }
+
+      if (fileAnalysis?.status == CvFileAnalysisStatus.unreadable) {
+        // النص الفعلي فاضي: سكان/صورة. بنقترح الـ Builder.
+        priority.add(CvTipData(
+          icon: Icons.image_not_supported_outlined,
+          title: tr('home_cv_tip_unreadable_title'),
+          message: tr('home_cv_tip_unreadable_message'),
+          opensBuilder: true,
+        ));
+      } else if (fileAnalysis == null &&
+          latest.fileSizeBytes > 0 &&
+          latest.fileSizeBytes < 15 * 1024) {
+        // لسه مفحوصش، فنستخدم تقدير الحجم الصغير مؤقتًا.
+        priority.add(CvTipData(
+          icon: Icons.warning_amber_outlined,
+          title: tr('home_cv_tip_check_file_title'),
+          message: tr('home_cv_tip_check_file_message'),
+        ));
+      }
     }
 
-    // Multiple uploads sitting around — nudge toward cleanup.
-    if (cvs.length > 1) {
-      tips.add(CvTipData(
-        icon: Icons.delete_sweep_outlined,
-        title: tr('home_cv_tip_cleanup_title'),
-        message: tr('home_cv_tip_cleanup_message', {'count': cvs.length.toString()}),
-      ));
+    // ── 2) Missing-content tips ──
+    // الـ Builder أدق فبياخد الأولوية. لو مفيش، نستخدم نتيجة فحص الـ PDF.
+    final gapSource = builderCv ??
+        (fileAnalysis?.status == CvFileAnalysisStatus.ready
+            ? fileAnalysis!.input
+            : null);
+    if (gapSource != null) {
+      final gaps = CvCompletenessAnalyzer.analyze(gapSource);
+      for (final gap in gaps.take(2)) {
+        priority.add(CvTipData(
+          icon: gap.icon,
+          title: tr('cv_gap_${gap.key}_title'),
+          message: tr('cv_gap_${gap.key}_message'),
+          opensBuilder: builderCv != null,
+        ));
+      }
     }
 
-    // Unusually small file — likely a scan/photo with little real content,
-    // or a broken upload. Flag rather than silently trust it.
-    if (latest.fileSizeBytes > 0 && latest.fileSizeBytes < 15 * 1024) {
-      tips.add(CvTipData(
-        icon: Icons.warning_amber_outlined,
-        title: tr('home_cv_tip_check_file_title'),
-        message: tr('home_cv_tip_check_file_message'),
-      ));
-    }
+    final top = priority.take(maxPriorityCards).toList();
 
-    if (tips.isEmpty) {
-      return [
-        CvTipData(
-          icon: Icons.check_circle_outline,
-          title: tr('home_cv_tip_all_good_title'),
-          message: tr('home_cv_tip_all_good_message'),
-        ),
-      ];
-    }
+    // ── 3) General tips, rotating daily ──
+    final generalCount = maxCards - top.length; // always >= 1
+    final general = CvTipsRepository.tipsOfTheDay(count: generalCount).map(
+          (t) => CvTipData(
+        icon: t.icon,
+        title: tr('cv_tip_${t.id}_title'),
+        message: tr('cv_tip_${t.id}_message'),
+      ),
+    );
 
-    return tips.take(4).toList();
+    return [...top, ...general];
   }
 
   /// Pure logic — the next few interviews that haven't happened yet,
