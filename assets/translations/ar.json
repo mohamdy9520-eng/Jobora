@@ -15,6 +15,10 @@
   "get_started": "ابدأ الآن",
   "loading": "جارٍ التحميل...",
 
+  "ad_label": "إعلان",
+  "ad_close": "إخفاء الإعلان",
+  "profile_ad_privacy": "إعدادات خصوصية الإعلانات",
+
   "auth_login": "تسجيل الدخول",
   "auth_signup": "إنشاء حساب",
   "auth_full_name": "الاسم الكامل",

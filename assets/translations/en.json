@@ -15,6 +15,11 @@
   "get_started": "Get Started",
   "loading": "Loading...",
 
+  "ad_label": "Ad",
+  "ad_close": "Hide ad",
+  "profile_ad_privacy": "Ad privacy settings",
+
+
   "auth_login": "Log In",
   "auth_signup": "Sign Up",
   "auth_full_name": "Full name",

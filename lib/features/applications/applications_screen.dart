@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/models/application_model.dart';
+import '../../core/services/tab_refresh_controller.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/router/app_router.dart';
@@ -77,6 +78,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever the user returns to this tab / resumes the app.
+    // The filter selection is kept (State is preserved); the scroll
+    // position is reset by MainShell when the user leaves the tab
+    // (see scrollEpoch below).
+    watchTabRefresh(context, 1);
+    final scrollEpoch = watchTabScrollReset(context, 1);
+
     final provider = context.watch<ApplicationProvider>();
 
     return Scaffold(
@@ -88,7 +96,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
             child: Column(
               children: [
                 if (_activeFilter != null) _buildFilterBanner(context),
-                Expanded(child: _buildBody(context, provider)),
+                Expanded(child: _buildBody(context, provider, scrollEpoch)),
               ],
             ),
           ),
@@ -118,7 +126,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, ApplicationProvider provider) {
+  Widget _buildBody(
+      BuildContext context, ApplicationProvider provider, int scrollEpoch) {
     if (provider.isLoading && provider.applications.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -202,6 +211,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     }
 
     return ListView.separated(
+      key: ValueKey('applications-scroll-$scrollEpoch'),
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: filtered.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),

@@ -30,6 +30,9 @@ dependencies:
   firebase_crashlytics: ^4.0.4
   google_sign_in: ^6.2.1
 
+  # Ads (AdMob + UMP consent)
+  google_mobile_ads: ^7.0.0
+
   # Local persistence
   shared_preferences: ^2.2.3
   hive: ^2.2.3

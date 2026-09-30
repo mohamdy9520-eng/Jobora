@@ -3,16 +3,92 @@ import 'dart:io' show Platform, exit;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../features/applications/providers/application_provider.dart';
+import '../../features/cv/providers/cv_provider.dart';
+import '../../features/cv_builder/providers/cv_builder_provider.dart';
+import '../../features/interviews/providers/interview_provider.dart';
+import '../ads/ads_controller.dart';
+import '../ads/app_banner_ad.dart';
 import '../localization/app_localizations.dart';
 import '../router/app_router.dart';
+import '../services/tab_refresh_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/responsive.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
+  StatefulNavigationShell get _shell => widget.navigationShell;
+
+  /// The tab that was visible the last time we looked. Tracked here (instead
+  /// of relying on oldWidget in didUpdateWidget) so we always know which tab
+  /// was just left, whatever caused the switch (nav bar tap, back button,
+  /// goBranch from anywhere else).
+  late int _lastIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastIndex = widget.navigationShell.currentIndex;
+    WidgetsBinding.instance.addObserver(this);
+    // Consent form + Mobile Ads init need a running UI, so wait for frame 1.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AdsController>().initialize();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant MainShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newIndex = widget.navigationShell.currentIndex;
+    if (newIndex != _lastIndex) {
+      final leftIndex = _lastIndex;
+      _lastIndex = newIndex;
+      // Post-frame: notifying providers during build is not allowed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // The tab we just left is off-screen now: send it back to the top
+        // so it is already at its initial state when the user returns.
+        context.read<TabRefreshController>().resetScroll(leftIndex);
+        _refreshTab(newIndex);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Data refresh only — scroll position is intentionally not reset when
+    // the app comes back from the background.
+    if (state == AppLifecycleState.resumed) {
+      _refreshTab(_shell.currentIndex);
+    }
+  }
+
+  /// Refreshes a tab: first makes sure every live Firestore provider is
+  /// still subscribed (a stream that hit an error never restarts by
+  /// itself), then bumps the tab's revision so its page rebuilds.
+  void _refreshTab(int index) {
+    context.read<ApplicationProvider>().ensureSubscribed();
+    context.read<InterviewProvider>().ensureSubscribed();
+    context.read<CvProvider>().ensureSubscribed();
+    context.read<CvBuilderProvider>().ensureSubscribed();
+    context.read<TabRefreshController>().refresh(index);
+  }
 
   List<_NavItem> _items(BuildContext context) => [
     _NavItem(
@@ -43,10 +119,14 @@ class MainShell extends StatelessWidget {
   ];
 
   void _onDestinationSelected(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+    final isSame = index == _shell.currentIndex;
+    _shell.goBranch(index, initialLocation: isSame);
+    // Tapping the current tab again also refreshes it and sends it back
+    // to the top.
+    if (isSame) {
+      context.read<TabRefreshController>().resetScroll(index);
+      _refreshTab(index);
+    }
   }
 
   /// FAB is shown on Applications (1) and Interviews (2) only.
@@ -55,12 +135,14 @@ class MainShell extends StatelessWidget {
   bool _showFab(int index) => index == 1 || index == 2;
 
   Widget? _buildFab(BuildContext context, {bool extended = false}) {
-    final index = navigationShell.currentIndex;
+    final index = _shell.currentIndex;
     if (!_showFab(index)) return null;
 
     final isInterviews = index == 2;
-    final route = isInterviews ? AppRoutes.addInterview : AppRoutes.addApplication;
-    final labelKey = isInterviews ? 'interviews_add_title' : 'home_add_application';
+    final route =
+    isInterviews ? AppRoutes.addInterview : AppRoutes.addApplication;
+    final labelKey =
+    isInterviews ? 'interviews_add_title' : 'home_add_application';
 
     if (extended) {
       return SizedBox(
@@ -88,7 +170,7 @@ class MainShell extends StatelessWidget {
   /// stray "s". Shrinking just the label style (locally, via a Theme
   /// override) fixes that without touching the rest of the app's
   /// typography.
-  Widget _buildBottomNavBar(BuildContext context, List<_NavItem> items) {
+  Widget _buildNavigationBar(BuildContext context, List<_NavItem> items) {
     final baseTheme = Theme.of(context);
     return Theme(
       data: baseTheme.copyWith(
@@ -106,7 +188,7 @@ class MainShell extends StatelessWidget {
         ),
       ),
       child: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        selectedIndex: _shell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
         destinations: [
           for (final item in items)
@@ -117,6 +199,18 @@ class MainShell extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  /// Banner sits right above the NavigationBar, shared by all 5 tabs
+  /// (one ad instance for the whole shell — no reload on tab switch).
+  Widget _buildBottomBar(BuildContext context, List<_NavItem> items) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const AppBannerAd(),
+        _buildNavigationBar(context, items),
+      ],
     );
   }
 
@@ -147,8 +241,8 @@ class MainShell extends StatelessWidget {
   Future<void> _handlePopInvoked(BuildContext context, bool didPop) async {
     if (didPop) return;
 
-    if (navigationShell.currentIndex != 0) {
-      navigationShell.goBranch(0);
+    if (_shell.currentIndex != 0) {
+      _shell.goBranch(0);
       return;
     }
 
@@ -174,9 +268,9 @@ class MainShell extends StatelessWidget {
         onPopInvokedWithResult: (didPop, result) =>
             _handlePopInvoked(context, didPop),
         child: Scaffold(
-          body: navigationShell,
+          body: _shell,
           floatingActionButton: _buildFab(context),
-          bottomNavigationBar: _buildBottomNavBar(context, items),
+          bottomNavigationBar: _buildBottomBar(context, items),
         ),
       );
     }
@@ -191,11 +285,13 @@ class MainShell extends StatelessWidget {
         body: Row(
           children: [
             NavigationRail(
-              selectedIndex: navigationShell.currentIndex,
+              selectedIndex: _shell.currentIndex,
               onDestinationSelected: _onDestinationSelected,
               extended: extended,
-              labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-              leading: _showFab(navigationShell.currentIndex)
+              labelType: extended
+                  ? NavigationRailLabelType.none
+                  : NavigationRailLabelType.all,
+              leading: _showFab(_shell.currentIndex)
                   ? Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: _buildFab(context, extended: extended),
@@ -211,7 +307,14 @@ class MainShell extends StatelessWidget {
               ],
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: navigationShell),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(child: _shell),
+                  const AppBannerAd(handleBottomSafeArea: true),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -220,7 +323,11 @@ class MainShell extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem({required this.icon, required this.selectedIcon, required this.label});
+  const _NavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+  });
   final IconData icon;
   final IconData selectedIcon;
   final String label;

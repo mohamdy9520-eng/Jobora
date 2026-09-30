@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/ads/ads_controller.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/app_settings_controller.dart';
 import '../../core/services/auth_controller.dart';
+import '../../core/services/tab_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
@@ -93,8 +95,16 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever the user returns to this tab / resumes the app.
+    watchTabRefresh(context, 4);
+
+    // Changes whenever MainShell sends this tab back to the top (the user
+    // left the tab). Used as the ListView key below so it starts at offset 0.
+    final scrollEpoch = watchTabScrollReset(context, 4);
+
     final settings = context.watch<AppSettingsController>();
     final auth = context.watch<AuthController>();
+    final ads = context.watch<AdsController>();
     final textColor = Theme.of(context).colorScheme.onSurface;
 
     final displayName = (auth.displayName?.trim().isNotEmpty ?? false)
@@ -113,6 +123,7 @@ class ProfileScreen extends StatelessWidget {
           child: ResponsiveContentWidth(
             maxWidth: 640,
             child: ListView(
+              key: ValueKey('profile-scroll-$scrollEpoch'),
               padding: const EdgeInsets.all(AppSpacing.xl),
               children: [
                 Row(
@@ -183,6 +194,15 @@ class ProfileScreen extends StatelessWidget {
                   title: context.tr('profile_privacy'),
                   onTap: () => context.push(AppRoutes.privacy),
                 ),
+                // GDPR: lets EEA/UK users change or withdraw ad consent at
+                // any time. Only shown where the law requires it.
+                if (ads.privacyOptionsRequired)
+                  _SettingsTile(
+                    icon: Icons.tune,
+                    title: context.tr('profile_ad_privacy'),
+                    onTap: () =>
+                        context.read<AdsController>().showPrivacyOptions(),
+                  ),
                 const SizedBox(height: AppSpacing.xl),
                 OutlinedButton.icon(
                   onPressed: () => context.read<AuthController>().signOut(),

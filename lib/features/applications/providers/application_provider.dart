@@ -45,6 +45,19 @@ class ApplicationProvider extends ChangeNotifier {
       return;
     }
 
+    _subscribe(uid);
+  }
+
+  /// Re-attaches the Firestore listener if it died. A Firestore snapshot
+  /// stream ends after an error and never restarts by itself, so without
+  /// this the data would stay frozen. No-op while the stream is healthy.
+  void ensureSubscribed() {
+    final uid = _uid;
+    if (uid == null || _subscription != null) return;
+    _subscribe(uid);
+  }
+
+  void _subscribe(String uid) {
     _isLoading = true;
     notifyListeners();
 
@@ -56,6 +69,10 @@ class ApplicationProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (Object err, StackTrace _) {
+        // The stream is dead after an error: drop it so
+        // ensureSubscribed() can attach a fresh one.
+        _subscription?.cancel();
+        _subscription = null;
         _isLoading = false;
         _error = err.toString();
         notifyListeners();

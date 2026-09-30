@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/models/interview_model.dart';
 import '../../core/router/app_router.dart';
+import '../../core/services/tab_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
@@ -16,6 +17,14 @@ class InterviewsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever the user returns to this tab / resumes the app,
+    // so "today / tomorrow" labels and the upcoming list stay correct.
+    watchTabRefresh(context, 2);
+
+    // Changes whenever MainShell sends this tab back to the top (the user
+    // left the tab). Used as the ListView key below so it starts at offset 0.
+    final scrollEpoch = watchTabScrollReset(context, 2);
+
     final provider = context.watch<InterviewProvider>();
     final upcoming = provider.upcoming;
 
@@ -40,6 +49,7 @@ class InterviewsScreen extends StatelessWidget {
           child: ResponsiveContentWidth(
             maxWidth: 700,
             child: ListView(
+              key: ValueKey('interviews-scroll-$scrollEpoch'),
               padding: const EdgeInsets.all(AppSpacing.xl),
               children: [
                 Text(context.tr('interviews_upcoming'),

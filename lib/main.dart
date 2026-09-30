@@ -8,10 +8,12 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'core/ads/ads_controller.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/services/app_settings_controller.dart';
 import 'core/services/auth_controller.dart';
+import 'core/services/tab_refresh_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'features/applications/providers/application_provider.dart';
 import 'features/cv/providers/cv_provider.dart';
@@ -102,6 +104,9 @@ class _JobMateAppState extends State<JobMateApp> {
       providers: [
         ChangeNotifierProvider.value(value: widget.settingsController),
         ChangeNotifierProvider.value(value: widget.authController),
+        // Ads (UMP consent + banner state) and per-tab auto-refresh.
+        ChangeNotifierProvider(create: (_) => AdsController()),
+        ChangeNotifierProvider(create: (_) => TabRefreshController()),
         ChangeNotifierProvider(create: (_) => HomeController()..load()),
         ChangeNotifierProxyProvider<AuthController, ApplicationProvider>(
           create: (_) => ApplicationProvider(),

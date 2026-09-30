@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/auth_controller.dart';
+import '../../core/services/tab_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
@@ -29,6 +30,15 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever the user returns to this tab (or resumes the app
+    // while on it) so time-based values (greeting, upcoming interviews,
+    // stale applications) are never out of date.
+    watchTabRefresh(context, 0);
+
+    // Changes whenever MainShell sends this tab back to the top (the user
+    // left the tab). Used as the ListView key below so it starts at offset 0.
+    final scrollEpoch = watchTabScrollReset(context, 0);
+
     final textColor = Theme.of(context).colorScheme.onSurface;
     final auth = context.watch<AuthController>();
     final home = context.watch<HomeController>();
@@ -121,6 +131,7 @@ class HomeScreen extends StatelessWidget {
           child: ResponsiveContentWidth(
             maxWidth: 960,
             child: ListView(
+              key: ValueKey('home-scroll-$scrollEpoch'),
               padding: const EdgeInsets.all(AppSpacing.xl),
               children: [
                 // ── Counters (display only, not tappable) ──
