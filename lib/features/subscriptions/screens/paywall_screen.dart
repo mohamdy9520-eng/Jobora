@@ -107,14 +107,17 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   /// مميزات الـ Pro المعروضة في الـ Paywall. الأرقام جاية من UsageLimits
-  /// عشان اللي بنوعد بيه هو نفس اللي بنطبّقه في الـ CoverLetterUsageService.
+  /// عشان اللي بنوعد بيه هو نفس اللي بنطبّقه في الـ usage services.
+  ///
+  /// Practice Interview: Pro = Unlimited (مفيش رقم)، والمجاني له جلسة
+  /// واحدة بس في العمر.
   List<String> _features(BuildContext context) => [
     context.tr('paywall_feature_cover_letters', {
       'pro': UsageLimits.proCoverLettersPerDay.toString(),
       'free': UsageLimits.freeCoverLettersPerDay.toString(),
     }),
     context.tr('paywall_feature_practice', {
-      'count': UsageLimits.proPracticeSessionsPerDay.toString(),
+      'free': UsageLimits.freePracticeSessionsLifetime.toString(),
     }),
     // ⚠️ سيب السطر ده لحد ما الإعلانات تتضاف للتطبيق فعلًا؛
     // وعد "بدون إعلانات" من غير إعلانات أصلًا مش مناسب.

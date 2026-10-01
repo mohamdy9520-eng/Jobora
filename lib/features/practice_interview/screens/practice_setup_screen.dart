@@ -51,7 +51,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
   bool _initialized = false;
   bool _starting = false;
   String? _errorKey;
-  int? _remaining; // practice sessions left today (null = unknown)
+  int? _freeLeft; // free sessions left (null = unknown yet). Ignored for Pro.
 
   List<PracticeSession> _sessions = const [];
   StreamSubscription<List<PracticeSession>>? _historySub;
@@ -74,7 +74,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
         onError: (Object e) => debugPrint('[PracticeSetup] history error: $e'),
       );
     }
-    _loadRemaining();
+    _loadFreeLeft();
   }
 
   @override
@@ -84,12 +84,12 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     super.dispose();
   }
 
-  Future<void> _loadRemaining() async {
+  Future<void> _loadFreeLeft() async {
     final uid = _uid;
     if (uid == null || uid.isEmpty) return;
     try {
-      final left = await _usage.remaining(uid);
-      if (mounted) setState(() => _remaining = left);
+      final left = await _usage.freeRemaining(uid);
+      if (mounted) setState(() => _freeLeft = left);
     } catch (e) {
       debugPrint('[PracticeUsage] read failed: $e');
     }
@@ -210,6 +210,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
   Future<void> _start() async {
     final apps = context.read<ApplicationProvider>();
     final cvs = context.read<CvProvider>();
+    final isPro = context.read<SubscriptionProvider>().isPro;
     final app = _application(apps);
 
     if (app == null) {
@@ -247,9 +248,10 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       return;
     }
 
-    // Everything is valid. Only CHECK today's sessions here. The session is
-    // consumed later, by PracticeChatScreen, once the first question really
-    // reaches the user, so an AI/network failure never costs a session.
+    // Everything is valid. Free users: only CHECK the allowance here. The
+    // session is consumed later, by PracticeChatScreen, once the first
+    // question really reaches the user, so an AI/network failure never costs
+    // a free session. Pro users are unlimited.
     final uid = _uid;
     if (uid == null || uid.isEmpty) {
       setState(() {
@@ -259,33 +261,36 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       return;
     }
 
-    int left;
-    try {
-      left = await _usage.remaining(uid);
-    } catch (e) {
-      debugPrint('[PracticeUsage] read failed: $e');
+    if (!isPro) {
+      int left;
+      try {
+        left = await _usage.freeRemaining(uid);
+      } catch (e) {
+        debugPrint('[PracticeUsage] read failed: $e');
+        if (!mounted) return;
+        setState(() {
+          _starting = false;
+          _errorKey = 'error_generic';
+        });
+        return;
+      }
       if (!mounted) return;
+
+      if (left <= 0) {
+        // The upgrade card replaces the start button.
+        setState(() {
+          _starting = false;
+          _freeLeft = 0;
+        });
+        return;
+      }
       setState(() {
         _starting = false;
-        _errorKey = 'error_generic';
+        _freeLeft = left;
       });
-      return;
+    } else {
+      setState(() => _starting = false);
     }
-    if (!mounted) return;
-
-    if (left <= 0) {
-      setState(() {
-        _starting = false;
-        _remaining = 0;
-        _errorKey = 'practice_error_daily_limit';
-      });
-      return;
-    }
-
-    setState(() {
-      _starting = false;
-      _remaining = left;
-    });
 
     await context.push(
       AppRoutes.practiceChat,
@@ -300,8 +305,8 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       ),
     );
 
-    // Back from the interview: refresh the "sessions left" line.
-    if (mounted) _loadRemaining();
+    // Back from the interview: refresh the "free sessions left" line.
+    if (mounted) _loadFreeLeft();
   }
 
   Future<void> _confirmDelete(PracticeSession session) async {
@@ -348,11 +353,9 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('practice_title'))),
       body: SafeArea(
-        child: !isPro
-            ? const _LockedView()
-            : LayoutBuilder(
+        child: LayoutBuilder(
           builder: (context, constraints) {
-            final form = _buildForm(context, apps, cvs);
+            final form = _buildForm(context, apps, cvs, isPro);
             final history = _buildHistory(context);
 
             // Tablet / desktop: form on one side, history on the other.
@@ -399,11 +402,13 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       BuildContext context,
       ApplicationProvider apps,
       CvProvider cvs,
+      bool isPro,
       ) {
     final textColor = Theme.of(context).colorScheme.onSurface;
     final muted = textColor.withValues(alpha: 0.65);
     final app = _application(apps);
     final cv = _resolveCv(cvs, app);
+    final freeExhausted = !isPro && _freeLeft == 0;
 
     return [
       Text(context.tr('practice_intro'),
@@ -518,31 +523,32 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
             style: AppTextStyles.bodyMedium(AppColors.danger)),
         const SizedBox(height: AppSpacing.md),
       ],
-      if (_remaining != null) ...[
+      if (!isPro && _freeLeft != null && _freeLeft! > 0) ...[
         Text(
-          context.tr('practice_sessions_left', {
-            'left': _remaining.toString(),
-            'limit': PracticeUsageService.dailyLimit.toString(),
+          context.tr('practice_free_sessions_left', {
+            'left': _freeLeft.toString(),
+            'limit': PracticeUsageService.freeSessions.toString(),
           }),
           style: AppTextStyles.bodySmall(muted),
         ),
         const SizedBox(height: AppSpacing.md),
       ],
-      FilledButton.icon(
-        onPressed: (_starting || !_ai.isConfigured || _remaining == 0)
-            ? null
-            : _start,
-        icon: _starting
-            ? const SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
-            : const Icon(Icons.play_arrow_rounded),
-        label: Text(_starting
-            ? context.tr('practice_reading_cv')
-            : context.tr('practice_start')),
-      ),
+      if (freeExhausted)
+        const _UpgradeCard()
+      else
+        FilledButton.icon(
+          onPressed: (_starting || !_ai.isConfigured) ? null : _start,
+          icon: _starting
+              ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : const Icon(Icons.play_arrow_rounded),
+          label: Text(_starting
+              ? context.tr('practice_reading_cv')
+              : context.tr('practice_start')),
+        ),
     ];
   }
 
@@ -678,52 +684,45 @@ class _HistoryTile extends StatelessWidget {
   }
 }
 
-/// Shown instead of the setup form to users without an active Pro plan.
-class _LockedView extends StatelessWidget {
-  const _LockedView();
+/// Shown instead of the start button once a free user has used both free
+/// sessions. Old sessions stay readable below.
+class _UpgradeCard extends StatelessWidget {
+  const _UpgradeCard();
 
   @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
-    return Center(
-      child: ResponsiveContentWidth(
-        maxWidth: 480,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.workspace_premium_rounded,
-                  size: 56, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                context.tr('practice_locked_title'),
-                textAlign: TextAlign.center,
-                style: AppTextStyles.h2(textColor),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                context.tr('practice_locked_subtitle'),
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodyMedium(
-                    textColor.withValues(alpha: 0.65)),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              FilledButton(
-                // After a successful purchase the paywall continues straight
-                // to the practice setup screen (via ?next=), same as the
-                // card on the Home screen.
-                onPressed: () => context.push(
-                  Uri(
-                    path: AppRoutes.subscriptions,
-                    queryParameters: {'next': AppRoutes.practiceInterview},
-                  ).toString(),
-                ),
-                child: Text(context.tr('premium_upgrade')),
-              ),
-            ],
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Icon(Icons.workspace_premium_rounded,
+              size: 44, color: AppColors.primary),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            context.tr('practice_free_used_title'),
+            textAlign: TextAlign.center,
+            style: AppTextStyles.h3(textColor),
           ),
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            context.tr('practice_free_used_subtitle'),
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium(textColor.withValues(alpha: 0.65)),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          FilledButton(
+            // After a successful purchase the paywall continues straight
+            // back to the practice setup screen (via ?next=).
+            onPressed: () => context.push(
+              Uri(
+                path: AppRoutes.subscriptions,
+                queryParameters: {'next': AppRoutes.practiceInterview},
+              ).toString(),
+            ),
+            child: Text(context.tr('premium_upgrade')),
+          ),
+        ],
       ),
     );
   }

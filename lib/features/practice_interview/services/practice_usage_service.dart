@@ -1,18 +1,26 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/usage_limits.dart';
 
-/// Daily limit for practice interview sessions (Pro only), stored per user:
-/// users/{uid}/usage/practiceSessions = { date: 'YYYY-MM-DD' (UTC), count: n }
+/// Tracks the LIFETIME free Practice Interview allowance.
 ///
-/// Put this file at: lib/features/practice_interview/services/
+/// Stored at: users/{uid}/usage/practiceSessions  ->  { freeUsed: n }
+///
+/// - Free users: [UsageLimits.freePracticeSessionsLifetime] session, ever.
+/// - Pro users: unlimited. Callers skip this service entirely for them.
+///
+/// The counter only ever goes up by exactly 1 (enforced by firestore.rules),
+/// and the document can never be deleted, so it can't be reset.
 class PracticeUsageService {
-  PracticeUsageService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
-
-  static const dailyLimit = UsageLimits.proPracticeSessionsPerDay;
+  PracticeUsageService({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
+
+  /// Total free sessions a non-Pro user gets (lifetime, not per day).
+  static const int freeSessions = UsageLimits.freePracticeSessionsLifetime;
 
   DocumentReference<Map<String, dynamic>> _ref(String uid) => _db
       .collection('users')
@@ -20,37 +28,36 @@ class PracticeUsageService {
       .collection('usage')
       .doc('practiceSessions');
 
-  static String _todayUtc() {
-    final n = DateTime.now().toUtc();
-    final m = n.month.toString().padLeft(2, '0');
-    final d = n.day.toString().padLeft(2, '0');
-    return '${n.year}-$m-$d';
+  static int _used(Map<String, dynamic>? data) {
+    final v = data?['freeUsed'];
+    return v is int ? v : (v is num ? v.toInt() : 0);
   }
 
-  /// How many practice sessions the user can still start today.
-  Future<int> remaining(String uid) async {
-    final data = (await _ref(uid).get()).data();
-    if (data == null || data['date'] != _todayUtc()) return dailyLimit;
-    final used = (data['count'] as num?)?.toInt() ?? 0;
-    return (dailyLimit - used).clamp(0, dailyLimit);
+  /// How many free sessions are left (never negative).
+  Future<int> freeRemaining(String uid) async {
+    final snap = await _ref(uid).get();
+    return math.max(0, freeSessions - _used(snap.data()));
   }
 
-  /// Consumes one of today's sessions atomically. Called by
-  /// PracticeChatScreen once the first question has reached the user.
-  /// Returns how many are left AFTER consuming, or null if the user has
-  /// already used all of today's sessions (nothing is written in that case).
-  Future<int?> tryConsume(String uid) async {
+  /// Consumes one free session atomically.
+  /// Returns true if it was consumed, false if the allowance was already
+  /// used up (nothing is written in that case).
+  Future<bool> tryConsumeFree(String uid) {
     final ref = _ref(uid);
-    final today = _todayUtc();
-    return _db.runTransaction<int?>((tx) async {
-      final data = (await tx.get(ref)).data();
-      final used = (data != null && data['date'] == today)
-          ? ((data['count'] as num?)?.toInt() ?? 0)
-          : 0;
-      if (used >= dailyLimit) return null;
-      final next = used + 1;
-      tx.set(ref, {'date': today, 'count': next});
-      return dailyLimit - next;
+    return _db.runTransaction<bool>((tx) async {
+      final snap = await tx.get(ref);
+      final used = _used(snap.data());
+
+      if (used >= freeSessions) return false;
+
+      if (snap.exists) {
+        // Rule: only `freeUsed` changes, and by exactly +1.
+        tx.update(ref, {'freeUsed': used + 1});
+      } else {
+        // Rule: first write must be exactly { freeUsed: 1 }.
+        tx.set(ref, {'freeUsed': 1});
+      }
+      return true;
     });
   }
 }

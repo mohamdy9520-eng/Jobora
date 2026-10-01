@@ -742,6 +742,17 @@
   "cv_gap_languages_message": "List the languages you speak and your level in each.",
 
   "home_cv_tip_unreadable_title": "We couldn't read your CV file",
-  "home_cv_tip_unreadable_message": "This file has no readable text (it may be a scan or an image), so we can't check it. Build your CV with the CV Builder for a full check."
+  "home_cv_tip_unreadable_message": "This file has no readable text (it may be a scan or an image), so we can't check it. Build your CV with the CV Builder for a full check.",
 
+  "practice_free_sessions_left": "Free practice sessions left: {left} of {limit}",
+  "practice_free_used_title": "You've used your free sessions",
+  "practice_free_used_subtitle": "Upgrade to Premium for unlimited practice interviews with detailed feedback. You can still open your previous sessions.",
+  "practice_voice_start": "Answer by voice",
+  "practice_voice_stop": "Stop recording",
+  "practice_voice_listening": "Listening... speak now",
+  "practice_voice_read_aloud": "Read questions aloud",
+  "practice_voice_error_permission": "Microphone permission is needed to answer by voice. Enable it in your device settings.",
+  "practice_voice_error_locale": "Your device doesn't support speech recognition for this language. Please type your answer.",
+  "practice_voice_error_unavailable": "Speech recognition isn't available on this device right now.",
+  "practice_voice_error_tts": "No text-to-speech voice is installed on your device for this language."
 }

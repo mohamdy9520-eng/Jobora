@@ -740,5 +740,17 @@
   "cv_gap_languages_message": "اكتب اللغات اللي بتتكلمها ومستواك في كل واحدة.",
 
   "home_cv_tip_unreadable_title": "مقدرناش نقرأ ملف الـ CV",
-  "home_cv_tip_unreadable_message": "الملف مفيهوش نص مقروء (غالبًا صورة أو سكان)، فمش هنقدر نفحصه. اعمل الـ CV من الـ CV Builder عشان نفحصه لك بالكامل."
+  "home_cv_tip_unreadable_message": "الملف مفيهوش نص مقروء (غالبًا صورة أو سكان)، فمش هنقدر نفحصه. اعمل الـ CV من الـ CV Builder عشان نفحصه لك بالكامل.",
+
+  "practice_free_sessions_left": "جلسات التدريب المجانية المتبقية: {left} من {limit}",
+  "practice_free_used_title": "خلّصت جلساتك المجانية",
+  "practice_free_used_subtitle": "اشترك في بريميوم عشان تتدرب بلا حدود وتاخد تقييم تفصيلي لكل مقابلة. لسه تقدر تفتح جلساتك السابقة.",
+  "practice_voice_start": "جاوب بصوتك",
+  "practice_voice_stop": "إيقاف التسجيل",
+  "practice_voice_listening": "بسمعك... اتكلم دلوقتي",
+  "practice_voice_read_aloud": "قراءة الأسئلة بصوت عالي",
+  "practice_voice_error_permission": "محتاجين إذن الميكروفون عشان تجاوب بالصوت. فعّله من إعدادات الجهاز.",
+  "practice_voice_error_locale": "جهازك مش داعم التعرف على الكلام للغة دي. اكتب إجابتك.",
+  "practice_voice_error_unavailable": "التعرف على الصوت مش متاح على جهازك دلوقتي.",
+  "practice_voice_error_tts": "مفيش صوت قراءة متسطّب على جهازك للغة دي."
 }

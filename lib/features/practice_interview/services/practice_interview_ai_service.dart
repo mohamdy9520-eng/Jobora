@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
+import '../../../core/constants/ai_config.dart';
 import '../../cover_letter/service/cover_letter_ai_service.dart';
 import '../models/practice_models.dart';
 
@@ -34,10 +35,11 @@ class _Call<T> {
   final Duration totalBudget;
 }
 
-/// Talks to OpenRouter using the same key (`OPENROUTER_API_KEY` via
-/// --dart-define-from-file=env) and the same model fallback list as the
-/// cover letter feature, so there is one place to update when free models
-/// change: CoverLetterAiService.models.
+/// Talks to OpenRouter through our Cloudflare Worker (AiConfig.workerUrl),
+/// authenticating with the user's Firebase ID token. The OpenRouter key never
+/// lives in the app. It uses the same model fallback list as the cover letter
+/// feature, so there is one place to update when free models change:
+/// CoverLetterAiService.models.
 class PracticeInterviewAiService {
   PracticeInterviewAiService({Dio? dio})
       : _dio = dio ??
@@ -49,14 +51,12 @@ class PracticeInterviewAiService {
 
   final Dio _dio;
 
-  static const _apiKey = String.fromEnvironment('OPENROUTER_API_KEY');
-
   static List<String> get _models => CoverLetterAiService.models;
 
   /// Models that answered "unavailable for free" during this app run.
   static final Set<String> _removedModels = {};
 
-  bool get isConfigured => _apiKey.isNotEmpty;
+  bool get isConfigured => AiConfig.isConfigured;
 
   static final _questionTag = RegExp(r'<q>([\s\S]*?)</q>', caseSensitive: false);
   static final _feedbackTag =
@@ -344,7 +344,7 @@ Return ONLY a JSON object wrapped exactly like <feedback>{...}</feedback> with t
             '${e.response?.data}'.contains('unavailable for free')) {
           _removedModels.add(modelId);
         }
-        // Key/account problems affect every model.
+        // Token/key/account problems affect every model.
         if (code == 401 || code == 402 || code == 403) {
           throw const PracticeAiException(PracticeError.unavailable);
         }
@@ -353,6 +353,12 @@ Return ONLY a JSON object wrapped exactly like <feedback>{...}</feedback> with t
             e.type == DioExceptionType.connectionTimeout) {
           throw const PracticeAiException(PracticeError.network);
         }
+      } on AiAuthException catch (e) {
+        // No signed-in user / couldn't get a Firebase token: no model will work.
+        _log('[$modelId] auth failed: $e');
+        throw PracticeAiException(
+          e.isNetwork ? PracticeError.network : PracticeError.unavailable,
+        );
       } catch (e) {
         lastError = e;
         _log('[$modelId] unexpected: $e');
@@ -391,7 +397,8 @@ Return ONLY a JSON object wrapped exactly like <feedback>{...}</feedback> with t
       // model could eat all of it and return an empty reply.
       'max_tokens': call.maxTokens,
       if (reasoningOff) 'reasoning': {'effort': 'none'},
-      // Only route to providers that don't store/train on user data.
+      // Only route to providers that don't store/train on user data
+      // (the Worker enforces this too).
       'provider': {'data_collection': 'deny'},
       'messages': call.messages,
     }, call.requestTimeout);
@@ -410,16 +417,20 @@ Return ONLY a JSON object wrapped exactly like <feedback>{...}</feedback> with t
   }
 
   Future<Response> _post(Map<String, dynamic> body, Duration timeout) async {
+    // Firebase ID token of the signed-in user (the Worker verifies it).
+    // Fetched before the timer starts so a slow token refresh doesn't eat
+    // into the request deadline.
+    final token = await AiConfig.idToken();
+
     final cancel = CancelToken();
     final timer = Timer(timeout, () => cancel.cancel('deadline'));
     try {
       return await _dio.post(
-        'https://openrouter.ai/api/v1/chat/completions',
+        AiConfig.workerUrl,
         cancelToken: cancel,
         options: Options(headers: {
-          'Authorization': 'Bearer $_apiKey',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'X-Title': 'JobMate',
         }),
         data: body,
       );

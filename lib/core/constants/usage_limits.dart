@@ -1,7 +1,5 @@
 /// Single source of truth for plan limits, shared by the paywall (what we
 /// promise) and the usage services (what we enforce).
-///
-/// Put this file at: lib/core/constants/usage_limits.dart
 class UsageLimits {
   UsageLimits._();
 
@@ -11,8 +9,12 @@ class UsageLimits {
   /// AI cover letters per day with Jobora Pro.
   static const int proCoverLettersPerDay = 10;
 
-  /// Practice interview sessions per day with Jobora Pro
-  /// (Practice Interview is Pro-only, so there is no free value).
-  /// If you change this, also change the `<= 3` ceiling in firestore.rules.
-  static const int proPracticeSessionsPerDay = 3;
+  /// Practice interview sessions on the free plan.
+  /// LIFETIME limit (trial), NOT per day.
+  /// If you change this, also change the `freeUsed <= 2` ceiling in
+  /// firestore.rules (usage/practiceSessions).
+  static const int freePracticeSessionsLifetime = 2;
+
+// Pro users have UNLIMITED practice sessions: there is deliberately no
+// constant for it, and nothing is ever counted or written for them.
 }

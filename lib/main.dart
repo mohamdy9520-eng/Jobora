@@ -57,11 +57,6 @@ Future<void> _configureRevenueCat() async {
     throw StateError('REVENUECAT_API_KEY missing');
   }
 
-  // 🔍 مؤقت للتشخيص فقط - امسحه بعد ما تتأكد
-  debugPrint('RC Key length: ${apiKey.length}');
-  debugPrint('RC Key prefix: ${apiKey.substring(0, apiKey.length > 6 ? 6 : apiKey.length)}');
-  debugPrint('RC Key suffix: ${apiKey.substring(apiKey.length > 6 ? apiKey.length - 6 : 0)}');
-
   if (kDebugMode) {
     await Purchases.setLogLevel(LogLevel.debug);
   } else {

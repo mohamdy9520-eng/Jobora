@@ -11,9 +11,11 @@ import '../../../core/services/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/responsive.dart';
+import '../../subscriptions/providers/subscription_provider.dart';
 import '../controller/practice_interview_controller.dart';
 import '../models/practice_models.dart';
 import '../services/practice_usage_service.dart';
+import '../services/practice_voice_service.dart';
 import '../widgets/practice_result_view.dart';
 
 class PracticeChatScreen extends StatefulWidget {
@@ -26,7 +28,10 @@ class PracticeChatScreen extends StatefulWidget {
 }
 
 class _PracticeChatScreenState extends State<PracticeChatScreen> {
+  static const _maxAnswerLength = 1500;
+
   late final PracticeInterviewController _controller;
+  late final PracticeVoiceService _voice;
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _usage = PracticeUsageService();
@@ -35,23 +40,34 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
 
   // A practice session is consumed only once the FIRST question has really
   // reached the user. If the AI or the network fails before that, the user
-  // never loses a session (and no refund logic is needed).
+  // never loses a session (and no refund logic is needed). Pro users are
+  // unlimited, so nothing is consumed for them.
   bool _sessionCounted = false;
   bool _counting = false;
+
+  // Voice: read the interviewer's questions aloud (off by default) and
+  // dictate answers with the mic.
+  bool _readAloud = false;
+  int _spokenQuestions = 0;
+  String _dictationBase = '';
 
   @override
   void initState() {
     super.initState();
     _uid = context.read<AuthController>().uid;
     _controller = PracticeInterviewController(setup: widget.setup, uid: _uid);
+    _voice = PracticeVoiceService(isArabic: widget.setup.isArabic);
     _controller.addListener(_onControllerChanged);
+    _voice.addListener(_onVoiceChanged);
     _controller.start();
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _voice.removeListener(_onVoiceChanged);
     _controller.dispose();
+    _voice.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -60,6 +76,34 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
   void _onControllerChanged() {
     _scrollToEnd();
     _countSessionOnFirstQuestion();
+    _speakNewQuestion();
+    if (_controller.phase != PracticePhase.interviewing) {
+      _voice.stopAll();
+    }
+  }
+
+  void _onVoiceChanged() {
+    final error = _voice.takeError();
+    if (error == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(context.tr(_voiceErrorKey(error)))));
+    });
+  }
+
+  String _voiceErrorKey(PracticeVoiceError error) {
+    switch (error) {
+      case PracticeVoiceError.permissionDenied:
+        return 'practice_voice_error_permission';
+      case PracticeVoiceError.localeMissing:
+        return 'practice_voice_error_locale';
+      case PracticeVoiceError.unavailable:
+        return 'practice_voice_error_unavailable';
+      case PracticeVoiceError.ttsUnavailable:
+        return 'practice_voice_error_tts';
+    }
   }
 
   Future<void> _countSessionOnFirstQuestion() async {
@@ -69,12 +113,18 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
         .any((m) => m.role == PracticeRole.interviewer);
     if (!gotFirstQuestion) return;
 
+    // Premium: unlimited, nothing to count.
+    if (context.read<SubscriptionProvider>().isPro) {
+      _sessionCounted = true;
+      return;
+    }
+
     final uid = _uid;
     if (uid == null || uid.isEmpty) return;
 
     _counting = true;
     try {
-      await _usage.tryConsume(uid);
+      await _usage.tryConsumeFree(uid);
       _sessionCounted = true;
     } catch (e) {
       // Not marked as counted, so the next controller update retries.
@@ -82,6 +132,51 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
     } finally {
       _counting = false;
     }
+  }
+
+  /// Reads each new question once, but only when "read aloud" is on.
+  void _speakNewQuestion() {
+    final c = _controller;
+    final asked = c.questionsAsked;
+    if (asked <= _spokenQuestions) return;
+    if (!c.canAnswer || c.messages.isEmpty) return;
+
+    _spokenQuestions = asked;
+    if (_readAloud) _voice.speak(c.messages.last.text);
+  }
+
+  void _toggleReadAloud() {
+    setState(() => _readAloud = !_readAloud);
+    if (_readAloud) {
+      final c = _controller;
+      if (c.canAnswer && c.messages.isNotEmpty) {
+        _voice.speak(c.messages.last.text);
+      }
+    } else {
+      _voice.stopSpeaking();
+    }
+  }
+
+  Future<void> _toggleMic() async {
+    if (_voice.isListening) {
+      await _voice.stopListening();
+      return;
+    }
+    if (!_controller.canAnswer) return;
+
+    _dictationBase = _input.text.trim();
+    await _voice.startListening(onText: (words) {
+      if (!mounted) return;
+      final joined = _dictationBase.isEmpty ? words : '$_dictationBase $words';
+      final text = joined.length > _maxAnswerLength
+          ? joined.substring(0, _maxAnswerLength)
+          : joined;
+      _input.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      setState(() {});
+    });
   }
 
   void _scrollToEnd() {
@@ -145,6 +240,7 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
   void _send() {
     final text = _input.text.trim();
     if (text.isEmpty || !_controller.canAnswer) return;
+    _voice.stopAll();
     _input.clear();
     _controller.submitAnswer(text);
   }
@@ -158,7 +254,7 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _controller,
+      listenable: Listenable.merge([_controller, _voice]),
       builder: (context, _) {
         final c = _controller;
         final done = c.phase == PracticePhase.done;
@@ -198,6 +294,17 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
                 ],
               ),
               actions: [
+                if (c.phase == PracticePhase.interviewing)
+                  IconButton(
+                    tooltip: context.tr('practice_voice_read_aloud'),
+                    onPressed: _toggleReadAloud,
+                    icon: Icon(
+                      _readAloud
+                          ? Icons.volume_up_rounded
+                          : Icons.volume_off_rounded,
+                      color: _readAloud ? AppColors.primary : null,
+                    ),
+                  ),
                 if (c.canFinishEarly)
                   TextButton(
                     onPressed: _finishEarly,
@@ -236,6 +343,7 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
 
   Widget _chat(BuildContext context, PracticeInterviewController c) {
     final error = c.error;
+    final listening = _voice.isListening;
 
     return Column(
       children: [
@@ -302,18 +410,39 @@ class _PracticeChatScreenState extends State<PracticeChatScreen> {
                         controller: _input,
                         minLines: 1,
                         maxLines: 5,
-                        maxLength: 1500,
+                        maxLength: _maxAnswerLength,
                         keyboardType: TextInputType.multiline,
                         textInputAction: TextInputAction.newline,
                         textCapitalization: TextCapitalization.sentences,
+                        textDirection: widget.setup.isArabic
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          hintText: context.tr('practice_input_hint'),
+                          hintText: listening
+                              ? context.tr('practice_voice_listening')
+                              : context.tr('practice_input_hint'),
                           counterText: '',
                         ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
+                    IconButton.filledTonal(
+                      tooltip: listening
+                          ? context.tr('practice_voice_stop')
+                          : context.tr('practice_voice_start'),
+                      onPressed: c.canAnswer ? _toggleMic : null,
+                      style: listening
+                          ? IconButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                      )
+                          : null,
+                      icon: Icon(
+                        listening ? Icons.stop_rounded : Icons.mic_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
                     IconButton.filled(
                       tooltip: context.tr('practice_send'),
                       onPressed: c.canAnswer && _input.text.trim().isNotEmpty

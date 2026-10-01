@@ -14,7 +14,6 @@ import '../cv/providers/cv_provider.dart';
 import '../cv_builder/models/cv_builder_model.dart';
 import '../cv_builder/providers/cv_builder_provider.dart';
 import '../interviews/providers/interview_provider.dart';
-import '../subscriptions/providers/subscription_provider.dart';
 import 'cv_completeness_analyzer.dart';
 import 'home_controller.dart';
 
@@ -50,10 +49,6 @@ class HomeScreen extends StatelessWidget {
     final interviewProvider = context.watch<InterviewProvider>();
     final cvProvider = context.watch<CvProvider>();
     final cvBuilderProvider = context.watch<CvBuilderProvider>();
-
-    // Practice Interview is a Premium feature: non-subscribers see a lock
-    // on the card and are sent to the paywall instead.
-    final isPro = context.watch<SubscriptionProvider>().isPro;
 
     // Real display name from the account the user signed up with —
     // falls back to a generic localized label only if they never set one.
@@ -175,26 +170,17 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
-                // ── Practice interview (Premium) ─────────────
+                // ── Practice interview ─────────────
+                // Everyone opens the practice setup screen: free users
+                // get ONE lifetime session, Pro users are unlimited.
+                // The setup screen itself shows "sessions left" and swaps
+                // the start button for an upgrade card (→ paywall, with
+                // ?next= to continue back here after purchase) once the
+                // free session has been used.
                 _PracticeInterviewCard(
                   title: context.tr('home_practice_title'),
                   subtitle: context.tr('home_practice_subtitle'),
-                  locked: !isPro,
-                  // Pro users go straight to the practice setup
-                  // screen. Everyone else lands on the paywall,
-                  // which continues to practice interview
-                  // automatically after a successful purchase
-                  // (via the ?next= query param).
-                  onTap: () => context.push(
-                    isPro
-                        ? AppRoutes.practiceInterview
-                        : Uri(
-                      path: AppRoutes.subscriptions,
-                      queryParameters: {
-                        'next': AppRoutes.practiceInterview,
-                      },
-                    ).toString(),
-                  ),
+                  onTap: () => context.push(AppRoutes.practiceInterview),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
@@ -667,8 +653,8 @@ class _PracticeInterviewCard extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
-  /// True for users without an active Pro plan: shows a lock instead of
-  /// the chevron (tapping still works, it opens the paywall).
+  /// Shows a lock instead of the chevron. Not used for now: free users
+  /// have one lifetime session, so the card is open for everyone.
   final bool locked;
 
   @override

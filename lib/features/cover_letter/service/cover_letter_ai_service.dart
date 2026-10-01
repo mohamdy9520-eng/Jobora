@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+import '../../../core/constants/ai_config.dart';
 import '../cover_letter_generator.dart';
 
 class CoverLetterAiService {
@@ -15,12 +16,13 @@ class CoverLetterAiService {
 
   final Dio _dio;
 
-  // Run with: flutter run --dart-define-from-file=env.
-  static const _apiKey = String.fromEnvironment('OPENROUTER_API_KEY');
+  // Requests go to our Cloudflare Worker (AiConfig.workerUrl), which holds the
+  // OpenRouter key. The app only sends the user's Firebase ID token.
 
   // Free model ids change over time (llama-3.3-70b and deepseek-v4-flash were
   // removed from the free tier). If a model starts returning 404, replace it
-  // with another ":free" model from openrouter.ai/models.
+  // with another ":free" model from openrouter.ai/models. The Worker only
+  // accepts ":free" models and "openrouter/free".
   static const model = 'qwen/qwen3.8-27b:free';
 
   // Tried in order, ONE request each (plus one re-send without the reasoning
@@ -32,9 +34,8 @@ class CoverLetterAiService {
     // a specialised model), bad replies are rejected by the checks below and
     // the app falls back to the local generator.
     'openrouter/free',
-    // Optional PAID last resort (a few cents per 1000 letters, capped by the
-    // key's $1 limit). Uncomment ONLY if you decide to allow paid usage:
-    // 'meta-llama/llama-3.3-70b-instruct',
+    // Paid models are NOT allowed through the Worker (it only accepts ":free"
+    // models), so don't add one here without changing the Worker first.
   ];
 
   // Models that answered "unavailable for free" during this app run.
@@ -47,7 +48,7 @@ class CoverLetterAiService {
   // Don't start another model after this much time has already passed.
   static const _totalBudget = Duration(seconds: 45);
 
-  bool get isConfigured => _apiKey.isNotEmpty;
+  bool get isConfigured => AiConfig.isConfigured;
 
   static final _letterTag =
   RegExp(r'<letter>([\s\S]*?)</letter>', caseSensitive: false);
@@ -86,6 +87,7 @@ Extra rules:
 
   /// Returns a clean letter or throws (the screen then falls back to the
   /// local generator without consuming the user's daily quota).
+  /// May throw [AiAuthException] when there is no signed-in user.
   Future<String> generate(CoverLetterInput input) async {
     final clock = Stopwatch()..start();
     Object? lastError;
@@ -116,7 +118,7 @@ Extra rules:
           _removedModels.add(m);
           _log('[$m] removed for this session');
         }
-        // Key/account problems affect every model: don't try the others.
+        // Token/key/account problems affect every model: don't try the others.
         if (code == 401 || code == 402 || code == 403) rethrow;
         // No connection at all: every other model would fail the same way.
         if (e.type == DioExceptionType.connectionError ||
@@ -148,6 +150,9 @@ Extra rules:
       String modelId, {
         required bool reasoningOff,
       }) async {
+    // Firebase ID token of the signed-in user (the Worker verifies it).
+    final token = await AiConfig.idToken();
+
     final cancel = CancelToken();
     final timer = Timer(_perRequestTimeout, () {
       cancel.cancel('deadline ${_perRequestTimeout.inSeconds}s');
@@ -156,12 +161,11 @@ Extra rules:
     final Response res;
     try {
       res = await _dio.post(
-        'https://openrouter.ai/api/v1/chat/completions',
+        AiConfig.workerUrl,
         cancelToken: cancel,
         options: Options(headers: {
-          'Authorization': 'Bearer $_apiKey',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'X-Title': 'JobMate',
         }),
         data: {
           'model': modelId,
@@ -170,7 +174,8 @@ Extra rules:
           // model can eat all of it and return an empty letter.
           'max_tokens': 3500,
           if (reasoningOff) 'reasoning': {'effort': 'none'},
-          // Only route to providers that don't store/train on user data.
+          // Only route to providers that don't store/train on user data
+          // (the Worker enforces this too).
           'provider': {'data_collection': 'deny'},
           'messages': [
             {
