@@ -52,6 +52,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
   bool _starting = false;
   String? _errorKey;
   int? _freeLeft; // free sessions left (null = unknown yet). Ignored for Pro.
+  bool _freeCheckDone = false; // true once the first allowance read finished (ok or failed)
 
   List<PracticeSession> _sessions = const [];
   StreamSubscription<List<PracticeSession>>? _historySub;
@@ -86,12 +87,22 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
 
   Future<void> _loadFreeLeft() async {
     final uid = _uid;
-    if (uid == null || uid.isEmpty) return;
+    if (uid == null || uid.isEmpty) {
+      if (mounted) setState(() => _freeCheckDone = true);
+      return;
+    }
     try {
       final left = await _usage.freeRemaining(uid);
-      if (mounted) setState(() => _freeLeft = left);
+      if (mounted) {
+        setState(() {
+          _freeLeft = left;
+          _freeCheckDone = true;
+        });
+      }
     } catch (e) {
       debugPrint('[PracticeUsage] read failed: $e');
+      // Don't block the form on a failed read: _start() re-checks the limit.
+      if (mounted) setState(() => _freeCheckDone = true);
     }
   }
 
@@ -277,7 +288,7 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       if (!mounted) return;
 
       if (left <= 0) {
-        // The upgrade card replaces the start button.
+        // The form is replaced by the upgrade card (see _buildForm).
         setState(() {
           _starting = false;
           _freeLeft = 0;
@@ -350,10 +361,16 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
     final apps = context.watch<ApplicationProvider>();
     final cvs = context.watch<CvProvider>();
 
+    // Free user + allowance not read yet: show a spinner instead of the
+    // form, so the form never flashes before the upgrade card.
+    final checkingAllowance = !isPro && !_freeCheckDone;
+
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('practice_title'))),
       body: SafeArea(
-        child: LayoutBuilder(
+        child: checkingAllowance
+            ? const Center(child: CircularProgressIndicator())
+            : LayoutBuilder(
           builder: (context, constraints) {
             final form = _buildForm(context, apps, cvs, isPro);
             final history = _buildHistory(context);
@@ -404,11 +421,15 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
       CvProvider cvs,
       bool isPro,
       ) {
+    // Free user who has used all free sessions: show ONLY the upgrade card
+    // (no form to fill in for nothing). Past sessions stay readable below.
+    final freeExhausted = !isPro && _freeLeft == 0;
+    if (freeExhausted) return const [_UpgradeCard()];
+
     final textColor = Theme.of(context).colorScheme.onSurface;
     final muted = textColor.withValues(alpha: 0.65);
     final app = _application(apps);
     final cv = _resolveCv(cvs, app);
-    final freeExhausted = !isPro && _freeLeft == 0;
 
     return [
       Text(context.tr('practice_intro'),
@@ -533,22 +554,19 @@ class _PracticeSetupScreenState extends State<PracticeSetupScreen> {
         ),
         const SizedBox(height: AppSpacing.md),
       ],
-      if (freeExhausted)
-        const _UpgradeCard()
-      else
-        FilledButton.icon(
-          onPressed: (_starting || !_ai.isConfigured) ? null : _start,
-          icon: _starting
-              ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-              : const Icon(Icons.play_arrow_rounded),
-          label: Text(_starting
-              ? context.tr('practice_reading_cv')
-              : context.tr('practice_start')),
-        ),
+      FilledButton.icon(
+        onPressed: (_starting || !_ai.isConfigured) ? null : _start,
+        icon: _starting
+            ? const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : const Icon(Icons.play_arrow_rounded),
+        label: Text(_starting
+            ? context.tr('practice_reading_cv')
+            : context.tr('practice_start')),
+      ),
     ];
   }
 
@@ -684,7 +702,7 @@ class _HistoryTile extends StatelessWidget {
   }
 }
 
-/// Shown instead of the start button once a free user has used both free
+/// Shown instead of the whole form once a free user has used all free
 /// sessions. Old sessions stay readable below.
 class _UpgradeCard extends StatelessWidget {
   const _UpgradeCard();
