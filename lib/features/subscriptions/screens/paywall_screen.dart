@@ -4,16 +4,12 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/legal_urls.dart';
 import '../../../core/constants/usage_limits.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/responsive.dart';
 import '../providers/subscription_provider.dart';
-
-/// 🔗 غيّر اللينكات دي بلينك الـ GitHub Pages بتاعك بعد الرفع.
-/// مثال: https://<username>.github.io/<repo>/terms.html
-const String kTermsUrl = 'https://YOUR_GITHUB_USERNAME.github.io/jobora-legal/terms.html';
-const String kPrivacyUrl = 'https://YOUR_GITHUB_USERNAME.github.io/jobora-legal/privacy.html';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -242,8 +238,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                             isRestoring: _isRestoring,
                             onSubscribe: () => _handlePurchase(package),
                             onRestore: _handleRestore,
-                            onTerms: () => _openLegalUrl(kTermsUrl),
-                            onPrivacy: () => _openLegalUrl(kPrivacyUrl),
+                            onTerms: () => _openLegalUrl(LegalUrls.terms),
+                            onPrivacy: () => _openLegalUrl(LegalUrls.privacy),
                           ),
                         ),
                       ],

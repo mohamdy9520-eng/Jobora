@@ -2,12 +2,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/legal_urls.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/auth_controller.dart';
 import '../legal_webview_screen.dart';
 import 'privacy_provider.dart';
-
-const _privacyBaseUrl = 'https://mohamdy9520-eng.github.io/jobora-legal/privacy.html';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
@@ -120,7 +119,7 @@ class _PrivacyView extends StatelessWidget {
     final provider = context.watch<PrivacyProvider>();
 
     return LegalWebViewScreen(
-      baseUrl: _privacyBaseUrl,
+      baseUrl: LegalUrls.privacy,
       titleKey: 'privacy_title',
       actions: [
         provider.isSubmitting

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../constants/legal_urls.dart';
 import '../../features/applications/add_application_screen.dart';
 import '../../features/applications/edit/edit_application_screen.dart';
 import '../../features/cover_letter/screen/cover_letter_screen.dart';
@@ -191,7 +192,7 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.terms,
         builder: (c, s) => const LegalWebViewScreen(
-          baseUrl: 'https://mohamdy9520-eng.github.io/jobora-legal/terms.html',
+          baseUrl: LegalUrls.terms,
           titleKey: 'terms_title',
         ),
       ),
